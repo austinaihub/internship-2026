@@ -1,0 +1,13 @@
+langchain-openai
+langgraph
+tavily-python
+python-dotenv
+requests
+tweepy
+pillow
+openai
+langsmith
+google-generativeai
+exa_py
+crawl4ai
+streamlit
