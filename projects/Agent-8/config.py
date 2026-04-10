@@ -1,4 +1,4 @@
-import os
+from typing import Optional
 
 # API Management Toggles
 API_CONFIG = {
@@ -6,6 +6,10 @@ API_CONFIG = {
     "GUARDIAN_ENABLED": False, # Deprecated in Agent-6
     "NEWSDATA_ENABLED": False  # Deprecated in Agent-6
 }
+
+# Exa: optional publish-date lower bound (days ago). None = omit filter (better recall;
+# Exa excludes undated URLs when a start_published_date is set).
+EXA_RECENCY_DAYS: Optional[int] = None
 
 # Domains for formal news and research
 NEWS_DOMAINS = [
