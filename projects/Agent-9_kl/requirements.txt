@@ -1,0 +1,15 @@
+langchain-openai
+langgraph
+tavily-python
+python-dotenv
+requests
+tweepy
+pillow
+openai
+langsmith
+google-genai
+exa_py
+crawl4ai
+streamlit
+fastapi
+uvicorn[standard]
