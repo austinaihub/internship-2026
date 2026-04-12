@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { approveImage, getImageUrl } from '../api'
 
-export default function ImageReview({ state, sessionId, onUpdate }) {
+export default function ImageReview({ state, sessionId, onUpdate, recordInput }) {
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingAction, setLoadingAction] = useState(null)
@@ -15,6 +15,11 @@ export default function ImageReview({ state, sessionId, onUpdate }) {
       const data = await approveImage(sessionId, {
         action,
         feedback: feedback.trim(),
+      })
+      recordInput({
+        step: 'image_review',
+        action,
+        feedback: feedback.trim() || null,
       })
       onUpdate(data.state)
     } catch (err) {

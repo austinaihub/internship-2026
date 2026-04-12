@@ -13,22 +13,16 @@ from src.state import AgentState
 class AudienceDecision(BaseModel):
     target_audience: str = Field(description="Audience key, e.g. 'college_students', 'educators', 'business_owners', 'parents', 'lawmakers', 'general_public'.")
     audience_brief: str = Field(description="2-3 sentence writing direction for the Writer: tone, focus area, and CTA style for this audience.")
-    visual_style: str = Field(description="Complete visual style brief for the Image Generator: color palette, lighting mood, setting/environment, texture, and typography style.")
+    visual_style: str = Field(description="Short visual direction for the Image Generator: color palette (2-3 tones), lighting mood, and overall feel. Keep it under 25 words.")
     visual_elements: str = Field(
         description=(
-            "2-3 specific visual elements extracted from THIS news event. "
-            "At least ONE must show the HUMAN DIMENSION of trafficking "
-            "(victim environment, conditions of exploitation, moments of intervention). "
-            "Do NOT focus only on legal/courtroom objects like gavels or documents. "
-            "Think about WHERE the trafficking happened, WHO was affected, and WHAT "
-            "the conditions looked like. "
-            "Example: 'silhouettes of migrant workers in a dimly lit factory dormitory, "
-            "a row of confiscated passports spread on a steel table, "
-            "the neon glow of a massage parlor at night on a rainy street'. "
-            "NEVER use generic descriptions like 'a government building' or 'documents'. "
+            "ONE single visual anchor extracted from THIS news event — the most powerful, "
+            "specific image that captures the story's essence. Pick ONE concrete detail "
+            "(a place, an object, a moment) not a list of multiple scenes. "
+            "Example: 'a row of confiscated passports spread on a steel table'. "
+            "NEVER use generic descriptions. Keep it to one sentence. "
             "ANONYMITY: If describing people, use ONLY anonymous depictions — "
-            "backs of heads, hands, silhouettes, distant figures. "
-            "NEVER describe identifiable faces or name real individuals."
+            "silhouettes, hands, backs of heads. Never name real individuals."
         )
     )
     reasoning: str = Field(description="Brief explanation of why this audience was chosen.")
@@ -42,27 +36,23 @@ SYSTEM_PROMPT = """
 You are an Audience Strategist for a Human Trafficking Awareness campaign.
 
 Given a news story and a reference table of audience profiles, you must:
-1. Analyze the story content — who does it affect? what domain is it in? (legal, labor, online, etc.)
+1. Analyze the story content — who does it affect? what domain is it in?
 2. Match it to the SINGLE best audience from the profiles table.
 3. Output a writing brief (tone + focus + CTA) tailored to that audience.
-4. Output a visual style brief (color palette + lighting + setting + texture + typography) tailored to that audience.
-5. Extract 2-3 powerful VISUAL SCENES from the news story that reveal the HUMAN REALITY of trafficking. Focus on:
-   - WHERE the trafficking/exploitation happened (the physical environment, not the courtroom)
-   - WHO was affected and what their conditions looked like
-   - Moments of intervention, rescue, or resistance
-   Do NOT default to courtroom imagery (gavels, legal documents, marble columns). These are awareness campaign images, not legal news illustrations.
-6. ANONYMITY RULE: When describing visual scenes involving people, ALL figures
-   must be depicted anonymously — silhouettes, backs of heads, hands, distant
-   figures. NEVER reference real individuals by name or provide descriptions
-   that could match a specific public figure's appearance.
+4. Output a visual style brief: 2-3 color tones + lighting mood + overall feel. Keep it short (~20 words). Do NOT list specific scenes or objects — just the aesthetic direction.
+5. Extract ONE single visual anchor from the story — the most striking, concrete detail (a place, an object, a moment). Not a list of scenes. One powerful image in one sentence.
+6. ANONYMITY RULE: If describing people, use ONLY anonymous depictions — silhouettes, hands, backs of heads. NEVER name real individuals.
+
+VISUAL PHILOSOPHY — Less Is More:
+- The campaign images use a minimalist design language: one subject, expansive negative space, restrained palette.
+- Your visual_style and visual_elements should support this — give the Image Generator a clear, focused direction, not a shopping list of elements.
+- Do NOT suggest multiple metaphors, symbols, or scenes. One anchor is enough.
 
 Rules:
 - Choose the audience whose trigger keywords and focus area BEST match the story content.
 - If no audience is a strong match, default to "general_public".
-- The audience_brief must give the Writer enough direction to adapt tone and CTA without repeating the full story.
-- The visual_style must give the Image Generator enough direction to set palette, lighting, and environment. Prioritize settings where trafficking HAPPENS (factories, motel rooms, streets, shipping containers, apartments) over where it is PROSECUTED (courtrooms).
-- The visual_elements must be grounded in the story — never invent details not present in the source material.
-- The visual_elements must describe people ONLY as anonymous figures (silhouettes, hands, backs of heads). Never describe identifiable faces or named individuals.
+- The audience_brief must give the Writer enough direction to adapt tone and CTA.
+- The visual_elements must be grounded in the story — never invent details not in the source material.
 """
 
 

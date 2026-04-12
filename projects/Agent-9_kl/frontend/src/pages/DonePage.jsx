@@ -8,7 +8,7 @@ const REFINE_OPTIONS = [
   { value: 'audience', label: 'Audience', desc: 'Change targeting' },
 ]
 
-export default function DonePage({ state, sessionId, onUpdate, onNewCampaign }) {
+export default function DonePage({ state, sessionId, onUpdate, onNewCampaign, recordInput }) {
   const [refineTarget, setRefineTarget] = useState('text_only')
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
@@ -25,6 +25,12 @@ export default function DonePage({ state, sessionId, onUpdate, onNewCampaign }) 
       const data = await refineCampaign(sessionId, {
         target: refineTarget,
         feedback: feedback.trim(),
+      })
+      recordInput({
+        step: 'done_refine',
+        action: 'refine',
+        refineTarget,
+        feedback: feedback.trim() || null,
       })
       onUpdate(data.state, data.session_id)
     } catch (err) {

@@ -1,4 +1,44 @@
-// ── Status Badge (extracted from old Header.jsx) ────────────────────────────
+import { useState, useEffect } from 'react'
+
+// ── Collapsible Section ────────────────────────────────────────────────────
+function SidebarSection({ title, count, defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const [hasAutoOpened, setHasAutoOpened] = useState(defaultOpen)
+
+  // Auto-open when count goes from 0 to >0
+  useEffect(() => {
+    if (count > 0 && !hasAutoOpened) {
+      setOpen(true)
+      setHasAutoOpened(true)
+    }
+  }, [count, hasAutoOpened])
+
+  return (
+    <div className="sidebar-section">
+      <button
+        className="sidebar-section-header"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="sidebar-section-title">
+          {title}
+          {count != null && count > 0 && (
+            <span className="sidebar-section-count">{count}</span>
+          )}
+        </span>
+        <span className={`sidebar-section-chevron ${open ? 'open' : ''}`}>
+          &#x25B8;
+        </span>
+      </button>
+      {open && (
+        <div className="sidebar-section-body">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Status Badge ───────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const config = {
     approving_trend: { label: 'Reviewing Topic', className: 'badge-yellow' },
@@ -16,7 +56,7 @@ function StatusBadge({ status }) {
   return <span className={`badge ${className}`}>{label}</span>
 }
 
-// ── Step Definitions ────────────────────────────────────────────────────────
+// ── Step Definitions ───────────────────────────────────────────────────────
 const STEPS = [
   { key: 'setup',   label: 'Campaign Setup' },
   { key: 'topic',   label: 'News Topic' },
@@ -82,8 +122,57 @@ function getStepSummary(stepKey, state) {
   }
 }
 
-// ── Sidebar Component ───────────────────────────────────────────────────────
-export default function Sidebar({ state, status }) {
+// ── Expandable Text ────────────────────────────────────────────────────────
+function ExpandableText({ text, maxLines = 2 }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (!text) return null
+
+  return (
+    <div>
+      <p
+        className="sidebar-meta-value"
+        style={expanded ? { WebkitLineClamp: 'unset' } : undefined}
+      >
+        {text}
+      </p>
+      {text.length > 80 && (
+        <button
+          className="sidebar-expand-btn"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Step Label Map ─────────────────────────────────────────────────────────
+const STEP_LABELS = {
+  start: 'Campaign Start',
+  trend_review: 'Trend Review',
+  image_review: 'Content Review',
+  done_refine: 'Refinement',
+}
+
+const ACTION_LABELS = {
+  start: 'Started',
+  approve: 'Approved',
+  're-search': 'Re-searched',
+  regen_image: 'Regen Image',
+  regen_text_and_image: 'Regen All',
+  refine: 'Refined',
+}
+
+// ── Sidebar Component ──────────────────────────────────────────────────────
+export default function Sidebar({ state, status, inputHistory = [] }) {
+  const allNews = state?.all_retrieved_news || []
+  const rawNews = state?.raw_news || []
+
+  // Determine which articles were used by AI (by URL match)
+  const usedUrls = new Set(rawNews.map(a => a.url))
+
   return (
     <aside className="sidebar">
       {/* Logo + Badge */}
@@ -96,79 +185,250 @@ export default function Sidebar({ state, status }) {
 
       <hr className="divider" />
 
-      {/* Stepper */}
-      <nav className="sidebar-stepper">
-        {STEPS.map((step) => {
-          const mode = getStepMode(step.key, status, state)
-          const summary = mode === 'completed' || mode === 'active'
-            ? getStepSummary(step.key, state)
-            : null
+      {/* ── Section 1: Workflow Steps ── */}
+      <SidebarSection title="Workflow" defaultOpen={true}>
+        <nav className="sidebar-stepper">
+          {STEPS.map((step) => {
+            const mode = getStepMode(step.key, status, state)
+            const summary = mode === 'completed' || mode === 'active'
+              ? getStepSummary(step.key, state)
+              : null
 
-          const modeClass = {
-            completed: 'step-completed',
-            active: 'step-active',
-            loading: 'step-loading',
-            idle: 'step-idle',
-          }[mode] || 'step-idle'
+            const modeClass = {
+              completed: 'step-completed',
+              active: 'step-active',
+              loading: 'step-loading',
+              idle: 'step-idle',
+            }[mode] || 'step-idle'
 
-          const dotLabel = mode === 'completed'
-            ? '✓'
-            : mode === 'loading'
-            ? '⋯'
-            : STEPS.indexOf(step) + 1
+            const dotLabel = mode === 'completed'
+              ? '✓'
+              : mode === 'loading'
+              ? '⋯'
+              : STEPS.indexOf(step) + 1
 
-          return (
-            <div key={step.key} className={`sidebar-step ${modeClass}`}>
-              <div className="sidebar-step-dot">{dotLabel}</div>
-              <div className="sidebar-step-info">
-                <div className="sidebar-step-label">{step.label}</div>
-                {summary && (
-                  <div className="sidebar-step-summary">{summary}</div>
+            return (
+              <div key={step.key} className={`sidebar-step ${modeClass}`}>
+                <div className="sidebar-step-dot">{dotLabel}</div>
+                <div className="sidebar-step-info">
+                  <div className="sidebar-step-label">{step.label}</div>
+                  {summary && (
+                    <div className="sidebar-step-summary">{summary}</div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </nav>
+      </SidebarSection>
+
+      {/* ── Section 2: Campaign Summary ── */}
+      <SidebarSection title="Campaign" defaultOpen={true}>
+        <div className="sidebar-meta">
+          {state?.user_search_keywords && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Keywords</span>
+              <span className="meta-tag">{state.user_search_keywords}</span>
+            </div>
+          )}
+
+          {state?.trend_topic && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Topic</span>
+              <span className="sidebar-meta-value">{state.trend_topic}</span>
+            </div>
+          )}
+
+          {state?.trend_context && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Context</span>
+              <ExpandableText text={state.trend_context} />
+            </div>
+          )}
+
+          {state?.target_audience && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Audience</span>
+              <span className="meta-tag">{state.target_audience.replace(/_/g, ' ')}</span>
+            </div>
+          )}
+
+          {state?.audience_brief && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Audience Brief</span>
+              <ExpandableText text={state.audience_brief} />
+            </div>
+          )}
+
+          {state?.visual_style && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Visual Style</span>
+              <ExpandableText text={state.visual_style} />
+            </div>
+          )}
+
+          {state?.visual_elements && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Visual Elements</span>
+              <ExpandableText text={state.visual_elements} />
+            </div>
+          )}
+
+          {state?.image_prompt && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Image Prompt</span>
+              <ExpandableText text={state.image_prompt} />
+            </div>
+          )}
+
+          {state?.overlay_text && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Overlay Text</span>
+              <div className="sidebar-overlay-text">
+                {state.overlay_text.headline && (
+                  <div className="sidebar-overlay-line">
+                    <strong>Headline:</strong> {state.overlay_text.headline}
+                  </div>
+                )}
+                {state.overlay_text.key_fact && (
+                  <div className="sidebar-overlay-line">
+                    <strong>Key Fact:</strong> {state.overlay_text.key_fact}
+                  </div>
+                )}
+                {state.overlay_text.source_line && (
+                  <div className="sidebar-overlay-line">
+                    <strong>Source:</strong> {state.overlay_text.source_line}
+                  </div>
                 )}
               </div>
             </div>
-          )
-        })}
-      </nav>
+          )}
 
-      <hr className="divider" />
+          {state?.user_guidance && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Guidance</span>
+              <ExpandableText text={state.user_guidance} />
+            </div>
+          )}
 
-      {/* Metadata */}
-      <div className="sidebar-meta">
-        {state?.user_search_keywords && (
-          <div className="sidebar-meta-item">
-            <span className="sidebar-meta-label">Keywords</span>
-            <span className="meta-tag">{state.user_search_keywords}</span>
-          </div>
-        )}
+          {!state?.trend_topic && !state?.user_search_keywords && (
+            <p className="caption" style={{ textAlign: 'center' }}>
+              Campaign info will appear here
+            </p>
+          )}
+        </div>
+      </SidebarSection>
 
-        {state?.trend_topic && (
-          <div className="sidebar-meta-item">
-            <span className="sidebar-meta-label">Topic</span>
-            <span className="sidebar-meta-value">{state.trend_topic}</span>
-          </div>
-        )}
-
-        {state?.target_audience && (
-          <div className="sidebar-meta-item">
-            <span className="sidebar-meta-label">Audience</span>
-            <span className="meta-tag">{state.target_audience.replace(/_/g, ' ')}</span>
-          </div>
-        )}
-
-        {state?.user_guidance && (
-          <div className="sidebar-meta-item">
-            <span className="sidebar-meta-label">Guidance</span>
-            <span className="sidebar-meta-value">{state.user_guidance}</span>
-          </div>
-        )}
-
-        {!state?.trend_topic && !state?.user_search_keywords && (
+      {/* ── Section 3: News Sources ── */}
+      <SidebarSection
+        title="News Sources"
+        count={allNews.length}
+        defaultOpen={allNews.length > 0}
+      >
+        {allNews.length === 0 ? (
           <p className="caption" style={{ textAlign: 'center' }}>
-            Campaign info will appear here
+            No articles yet
           </p>
+        ) : (
+          <div className="sidebar-news-list">
+            {allNews.map((article, i) => {
+              const isUsed = usedUrls.has(article.url)
+              return (
+                <NewsItem key={i} article={article} isUsed={isUsed} />
+              )
+            })}
+          </div>
         )}
-      </div>
+      </SidebarSection>
+
+      {/* ── Section 4: User Input History ── */}
+      <SidebarSection
+        title="Your Inputs"
+        count={inputHistory.length}
+        defaultOpen={inputHistory.length > 0}
+      >
+        {inputHistory.length === 0 ? (
+          <p className="caption" style={{ textAlign: 'center' }}>
+            Your actions will appear here
+          </p>
+        ) : (
+          <div className="sidebar-input-list">
+            {[...inputHistory].reverse().map((entry, i) => (
+              <div key={i} className={`sidebar-input-entry ${i === 0 ? 'latest' : ''}`}>
+                <div className="sidebar-input-header">
+                  <span className="sidebar-input-step">
+                    {STEP_LABELS[entry.step] || entry.step}
+                  </span>
+                  <span className="sidebar-input-action">
+                    {ACTION_LABELS[entry.action] || entry.action}
+                  </span>
+                </div>
+                {entry.keywords && (
+                  <p className="sidebar-input-text">Keywords: "{entry.keywords}"</p>
+                )}
+                {entry.customTopic && (
+                  <p className="sidebar-input-text">Custom topic: "{entry.customTopic}"</p>
+                )}
+                {entry.selectedArticle && (
+                  <p className="sidebar-input-text">Selected: "{entry.selectedArticle}"</p>
+                )}
+                {entry.guidance && (
+                  <p className="sidebar-input-text">Guidance: "{entry.guidance}"</p>
+                )}
+                {entry.feedback && (
+                  <p className="sidebar-input-text">Feedback: "{entry.feedback}"</p>
+                )}
+                {entry.refineTarget && (
+                  <p className="sidebar-input-text">Target: {entry.refineTarget}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </SidebarSection>
     </aside>
+  )
+}
+
+// ── News Item Sub-component ────────────────────────────────────────────────
+function NewsItem({ article, isUsed }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className={`sidebar-news-item ${isUsed ? 'selected' : ''}`}>
+      <a
+        href={article.url}
+        target="_blank"
+        rel="noreferrer"
+        className="sidebar-news-title"
+      >
+        {article.title || 'Untitled'}
+      </a>
+      <div className="sidebar-news-meta">
+        <span className="sidebar-news-source">{article.source || 'Unknown'}</span>
+        {article.timestamp && (
+          <span className="sidebar-news-time"> · {article.timestamp}</span>
+        )}
+        {isUsed && <span className="sidebar-news-used">AI used</span>}
+      </div>
+      {article.content && (
+        <>
+          <p
+            className="sidebar-news-content"
+            style={expanded ? { WebkitLineClamp: 'unset' } : undefined}
+          >
+            {article.content}
+          </p>
+          {article.content.length > 120 && (
+            <button
+              className="sidebar-expand-btn"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
+        </>
+      )}
+    </div>
   )
 }

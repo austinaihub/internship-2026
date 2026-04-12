@@ -18,7 +18,7 @@ function StartSection({ onStart }) {
     setError(null)
     try {
       const data = await startCampaign(keywords)
-      onStart(data.session_id, data.state)
+      onStart(data.session_id, data.state, keywords)
     } catch (err) {
       setError(err.message)
       setLoading(false)
@@ -79,6 +79,11 @@ function ProcessingView({ label }) {
 export default function App() {
   const [sessionId, setSessionId] = useState(null)
   const [campaignState, setCampaignState] = useState(null)
+  const [inputHistory, setInputHistory] = useState([])
+
+  const recordInput = useCallback((entry) => {
+    setInputHistory(prev => [...prev, { ...entry, timestamp: Date.now() }])
+  }, [])
 
   // Poll during intermediate pipeline stages
   useEffect(() => {
@@ -102,9 +107,15 @@ export default function App() {
     return () => clearInterval(interval)
   }, [sessionId, campaignState?.status])
 
-  const handleStart = useCallback((newSessionId, state) => {
+  const handleStart = useCallback((newSessionId, state, keywords) => {
     setSessionId(newSessionId)
     setCampaignState(state)
+    setInputHistory([{
+      step: 'start',
+      timestamp: Date.now(),
+      action: 'start',
+      keywords: keywords || 'Auto discovery',
+    }])
   }, [])
 
   const handleUpdate = useCallback((state, newSessionId) => {
@@ -115,6 +126,7 @@ export default function App() {
   const handleNewCampaign = useCallback(() => {
     setSessionId(null)
     setCampaignState(null)
+    setInputHistory([])
   }, [])
 
   // ── Pre-campaign: show full-screen start page ──────────────────────────
@@ -138,7 +150,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar state={cs} status={status} />
+      <Sidebar state={cs} status={status} inputHistory={inputHistory} />
 
       <main className="main-content">
         <div className="main-inner">
@@ -151,6 +163,7 @@ export default function App() {
                 state={cs}
                 sessionId={sessionId}
                 onUpdate={handleUpdate}
+                recordInput={recordInput}
               />
             </div>
           )}
@@ -163,6 +176,7 @@ export default function App() {
                 state={cs}
                 sessionId={sessionId}
                 onUpdate={handleUpdate}
+                recordInput={recordInput}
               />
             </div>
           )}
@@ -176,6 +190,7 @@ export default function App() {
                 sessionId={sessionId}
                 onUpdate={handleUpdate}
                 onNewCampaign={handleNewCampaign}
+                recordInput={recordInput}
               />
             </div>
           )}

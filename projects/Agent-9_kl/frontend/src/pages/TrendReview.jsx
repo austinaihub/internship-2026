@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { approveTrend } from '../api'
 
-export default function TrendReview({ state, sessionId, onUpdate }) {
+export default function TrendReview({ state, sessionId, onUpdate, recordInput }) {
   const [selectedOption, setSelectedOption] = useState('ai')
   const [customTopic, setCustomTopic] = useState('')
   const [guidance, setGuidance] = useState('')
@@ -28,6 +28,13 @@ export default function TrendReview({ state, sessionId, onUpdate }) {
       }
 
       const data = await approveTrend(sessionId, payload)
+      recordInput({
+        step: 'trend_review',
+        action: 'approve',
+        customTopic: customTopic.trim() || null,
+        guidance: guidance.trim() || null,
+        selectedArticle: selectedOption !== 'ai' ? selectedOption : null,
+      })
       onUpdate(data.state)
     } catch (err) {
       alert(err.message)
@@ -39,6 +46,7 @@ export default function TrendReview({ state, sessionId, onUpdate }) {
     setLoading(true)
     try {
       const data = await approveTrend(sessionId, { action: 're-search' })
+      recordInput({ step: 'trend_review', action: 're-search' })
       onUpdate(data.state)
     } catch (err) {
       alert(err.message)

@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npm run:*)",
-      "Bash(ls D:/Projects/AIAgenticProject/Agent-9/frontend/tsconfig*)",
-      "Bash(npx vite:*)"
-    ]
-  }
-}

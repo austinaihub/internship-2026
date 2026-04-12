@@ -50,6 +50,16 @@ class ImageGeneratorAgent:
         if not api_key:
             print("WARNING: GEMINI_API_KEY is not set.")
         self.genai_client = genai.Client(api_key=api_key)
+        self._visual_philosophy = self._load_visual_philosophy()
+
+    @staticmethod
+    def _load_visual_philosophy() -> str:
+        path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "visual_philosophy.md"))
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            return ""
 
     # ------------------------------------------------------------------
     # Phase 1: Generate pure photography background (no text)
@@ -76,93 +86,46 @@ class ImageGeneratorAgent:
         # ── 1a. Generate image prompt (photography only, NO text) ──────────
         prompt_maker = ChatPromptTemplate.from_template(
             """
-            You are a photography director for a Human Trafficking Awareness campaign.
-            Your goal is to create powerful, emotionally resonant images that immediately
-            evoke the reality of human trafficking — control, exploitation, lost freedom,
-            and the fight for justice.
+            You are a minimalist photography director for a Human Trafficking Awareness campaign.
 
-            ABSOLUTE RULE: All human figures must remain ANONYMOUS and unidentifiable.
-            Preferred techniques: backs of heads, silhouettes against light,
-            extreme close-ups on hands/feet, faces in deep shadow, bokeh-blurred
-            figures, reflections in glass. No real person's likeness may ever appear.
+            DESIGN PHILOSOPHY:
+            {visual_philosophy}
 
-            Minimal incidental text on objects (e.g. text on a passport, a sign) is acceptable, but do NOT render large headlines, captions, or decorative text in the scene.
+            YOUR TASK: Create ONE image prompt — a single, striking photograph with
+            one focal subject and expansive negative space. Less is more.
 
-            EVENT INFORMATION:
+            EVENT:
             Headline: {topic}
             Context: {context}
-            Post Text: {text}
 
-            VISUAL STYLE BRIEF (follow this art direction):
-            {visual_style}
+            VISUAL STYLE: {visual_style}
 
-            VISUAL ANCHORS (mandatory — extracted from the real event):
+            VISUAL ANCHOR (build the image around this ONE detail):
             {visual_elements}
-            You MUST incorporate the above visual anchors into your scene.
-            These are the concrete, event-specific details that make this image unique.
 
             {user_guidance_block}
 
-            DESIGN RULES:
+            RULES:
+            1. ONE subject only. Do not combine multiple symbols or metaphors.
+            2. 50-60% of the frame must be negative space (blur, shadow, sky, gradient).
+            3. Shallow depth of field — sharp subject, soft everything else.
+            4. 2-3 color tones maximum. Let the palette breathe.
+            5. Bottom 25% of frame: dark or uncluttered (text overlay zone).
+            6. Depict WHERE the event happened, not where it was discussed.
+            7. No text, headlines, or captions in the image.
 
-            CRITICAL — DEPICT THE EVENT, NOT THE AUDIENCE: The image must show
-            the SCENE WHERE THE TRAFFICKING EVENT HAPPENED — not the target audience's
-            work environment. If the news is about migrants smuggled in lorries, show
-            the lorries and the migrants, NOT lawmakers in a meeting room discussing it.
-            Always ask: "What did this crime scene look like?" and depict THAT.
+            SAFETY (absolute):
+            - Human figures allowed but COMPLETELY ANONYMOUS (silhouettes, backs
+              of heads, hands, deep shadow). No identifiable faces.
+            - No real individuals, public figures, or named persons.
+            - No children or minors.
+            - No active violence, sexual content, or graphic injury.
+            - No degrading depictions of victims.
+            - When in doubt, choose a symbolic object over a human figure.
 
-            SCENE: Build the environment using the VISUAL ANCHORS above. Use the exact
-            location and setting details provided — do NOT substitute generic alternatives.
-            Go BEYOND courtrooms and legal settings. Show WHERE trafficking actually
-            happens: factories, motel rooms, cargo containers, construction sites,
-            massage parlors, cramped apartments, city streets at night, small boats, lorries.
-
-            EMOTIONAL CORE: The image must tell a HUMAN STORY about trafficking.
-            Go beyond courtroom evidence and legal proceedings. Show the HUMAN IMPACT:
-            - A person in a situation of control, confinement, or exploitation
-            - The tension between captivity and freedom (locked doors vs open sky,
-              dark rooms with a sliver of light)
-            - Environments where trafficking occurs in plain sight
-            - Use the VISUAL ANCHORS to ground the scene in THIS specific event,
-              but the emotional focus must be on the human cost, not legal process
-
-            TRAFFICKING VISUAL LANGUAGE (use at least 2 of these in every image):
-            - Confinement imagery: locked doors, barred windows, narrow corridors, fences
-            - Identity theft: scattered passports, blank IDs, confiscated documents
-            - Hidden victims: eyes peering through blinds, silhouette in a dark room,
-              handprints on foggy glass, a figure behind frosted window
-            - Everyday disguise: neon city lights hiding dark alleys, ordinary apartment
-              buildings concealing exploitation, a normal-looking storefront at night
-            - Hope and resistance: an outstretched hand, a corridor leading to light,
-              a broken chain, an open door at the end of a dark hallway
-            - Systemic scale: rows of identical beds, assembly lines, stacked containers
-
-            CAMERA: Real photography — focal length, aperture, angle, distance.
-            Photojournalism meets fine art.
-
-            ATMOSPHERE: One environmental effect (dust, fog, light rays, condensation)
-            that adds cinematic drama and is consistent with the event's setting.
-
-            COMPOSITION: Leave the BOTTOM 25% of the frame relatively dark or uncluttered
-            so that text can be overlaid later. Think of it like a magazine cover layout zone.
-
-            SAFETY RULES (absolute):
-            - Human figures ARE allowed — but must be COMPLETELY ANONYMOUS
-            - ALL faces must be: turned away, in silhouette, in deep shadow,
-              heavily motion-blurred, or cropped out of frame
-            - NO identifiable real individuals: no public figures, politicians,
-              celebrities, activists, or named persons — not even stylized
-            - NO children or minors in any form
-            - NO depictions of active violence, sexual content, or graphic injury
-            - NO imagery that portrays victims in a degrading or exploitative way
-            - Minimal incidental text on objects (passports, signs) is OK;
-              do NOT add large headlines or captions
-            - When in doubt, prefer symbolic objects over human figures
-
-            OUTPUT: Return ONLY the final image prompt as one dense paragraph describing:
-            the scene/environment, the emotional core, human figures, camera and lighting,
-            atmosphere, trafficking visual language elements, and the dark lower composition
-            zone. Pure photography, no text.
+            OUTPUT: One dense paragraph. Describe: the single subject, its environment
+            (minimal), camera angle and lens, lighting, and the negative space.
+            Keep it under 120 words. Pure photography, no text.
             """
         )
 
@@ -173,7 +136,7 @@ class ImageGeneratorAgent:
 
         chain = prompt_maker | self.llm
         image_prompt = chain.invoke({
-            "text": post_text,
+            "visual_philosophy": self._visual_philosophy,
             "topic": trend_topic,
             "context": trend_context,
             "visual_style": visual_style,
@@ -324,40 +287,21 @@ class ImageGeneratorAgent:
         Uses the LLM to intelligently rephrase.
         """
         softener = ChatPromptTemplate.from_template(
-            """You are a photography director. A previous image prompt was BLOCKED
-by an AI safety filter. Rewrite it into a version that will pass content
-moderation while still being visually powerful for a Human Trafficking
-Awareness campaign.
+            """A previous image prompt was BLOCKED by a safety filter. Rewrite it
+as a minimalist, symbolic photograph that will pass moderation.
 
-ORIGINAL PROMPT (blocked):
-{original_prompt}
+ORIGINAL (blocked): {original_prompt}
+TOPIC: {topic}
 
-NEWS TOPIC:
-{topic}
+REWRITE RULES:
+1. Replace any distress/exploitation/confinement scene with ONE symbolic object
+   (e.g., a single open door in light, a broken chain on concrete, an empty chair).
+2. ONE subject, 50-60% negative space, 2-3 color tones. Minimalist composition.
+3. No people in distress. Anonymous silhouettes OK if distant and peaceful.
+4. No text/captions in the image. Bottom 25% dark for overlay.
+5. Specify camera, lens, and lighting. Keep under 100 words.
 
-RULES FOR THE REWRITE:
-1. REMOVE all depictions of: victims in distress, exploitation scenes,
-   people in confinement, dark alleys with anxious figures, smuggling
-   scenarios, or any scene that could be interpreted as depicting a crime
-   in progress.
-2. SHIFT to symbolic and metaphorical imagery:
-   - A broken chain on a sunlit surface
-   - An open door at the end of a bright corridor
-   - Hands reaching toward light
-   - A single candle illuminating darkness
-   - Empty shoes or personal belongings symbolizing absence
-   - A road leading from shadow into light
-   - Documentary-style cityscape at dawn (hope, new beginning)
-3. Keep it as ONE dense paragraph describing a photograph.
-4. Maintain cinematic quality: specify camera, lighting, atmosphere.
-5. Keep the BOTTOM 25% dark/uncluttered for text overlay.
-6. NO people in distress. Silhouettes and distant anonymous figures are OK.
-7. NO text, headlines, or captions in the scene.
-8. ALL human figures must be anonymous: backs of heads, silhouettes,
-   or hands only. No identifiable faces or named individuals.
-9. NO real public figures, politicians, or celebrities in any form.
-
-OUTPUT: Return ONLY the rewritten prompt. One paragraph."""
+OUTPUT: One paragraph, the rewritten prompt only."""
         )
 
         chain = softener | self.llm
