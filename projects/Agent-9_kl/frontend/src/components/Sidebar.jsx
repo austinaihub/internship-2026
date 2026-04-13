@@ -42,6 +42,7 @@ function SidebarSection({ title, count, defaultOpen = true, children }) {
 function StatusBadge({ status }) {
   const config = {
     approving_trend: { label: 'Reviewing Topic', className: 'badge-yellow' },
+    approving_audience: { label: 'Reviewing Audience', className: 'badge-yellow' },
     approving_image: { label: 'Reviewing Content', className: 'badge-yellow' },
     approved_trend: { label: 'Processing', className: 'badge-blue' },
     approved_text: { label: 'Processing', className: 'badge-blue' },
@@ -58,11 +59,12 @@ function StatusBadge({ status }) {
 
 // ── Step Definitions ───────────────────────────────────────────────────────
 const STEPS = [
-  { key: 'setup',   label: 'Campaign Setup' },
-  { key: 'topic',   label: 'News Topic' },
-  { key: 'content', label: 'Content Generation' },
-  { key: 'review',  label: 'Content Review' },
-  { key: 'done',    label: 'Published' },
+  { key: 'setup',    label: 'Campaign Setup' },
+  { key: 'topic',    label: 'News Topic' },
+  { key: 'audience', label: 'Audience Strategy' },
+  { key: 'writing',  label: 'Content Writing' },
+  { key: 'visual',   label: 'Visual Generation' },
+  { key: 'done',     label: 'Published' },
 ]
 
 function getStepMode(stepKey, status, state) {
@@ -77,18 +79,30 @@ function getStepMode(stepKey, status, state) {
       if (state?.trend_topic && status !== 'approving_trend') return 'completed'
       return 'loading'
 
-    case 'content': {
-      const trendDone = state?.trend_topic && status !== 'approving_trend'
+    case 'audience': {
+      const trendDone = state?.trend_topic && !['approving_trend', 'starting'].includes(status)
       if (!trendDone) return 'idle'
-      if (['approving_image', 'done'].includes(status)) return 'completed'
-      if (status === 'error') return 'idle'
-      return 'loading'
+      if (status === 'approved_trend') return 'loading'
+      if (status === 'approving_audience') return 'active'
+      if (state?.target_audience) return 'completed'
+      return 'idle'
     }
 
-    case 'review':
+    case 'writing': {
+      if (!state?.target_audience) return 'idle'
+      if (['approving_audience', 'approved_trend', 'starting', 'approving_trend'].includes(status)) return 'idle'
+      if (status === 'audience_approved') return 'loading'
+      if (state?.post_text && state.post_text !== 'REJECTED') return 'completed'
+      return 'idle'
+    }
+
+    case 'visual': {
+      if (!state?.post_text || state.post_text === 'REJECTED') return 'idle'
+      if (status === 'approved_text') return 'loading'
       if (status === 'approving_image') return 'active'
       if (status === 'done') return 'completed'
       return 'idle'
+    }
 
     case 'done':
       if (status === 'done') return 'active'
@@ -109,11 +123,15 @@ function getStepSummary(stepKey, state) {
         : 'Auto discovery'
     case 'topic':
       return state.trend_topic || null
-    case 'content':
+    case 'audience':
       return state.target_audience
-        ? `Audience: ${state.target_audience}`
+        ? state.target_audience.replace(/_/g, ' ')
         : null
-    case 'review':
+    case 'writing':
+      return state.post_text && state.post_text !== 'REJECTED'
+        ? `${state.post_text.substring(0, 40)}...`
+        : null
+    case 'visual':
       return null
     case 'done':
       return null
@@ -152,6 +170,7 @@ function ExpandableText({ text, maxLines = 2 }) {
 const STEP_LABELS = {
   start: 'Campaign Start',
   trend_review: 'Trend Review',
+  audience_review: 'Audience Review',
   image_review: 'Content Review',
   done_refine: 'Refinement',
 }
@@ -159,10 +178,20 @@ const STEP_LABELS = {
 const ACTION_LABELS = {
   start: 'Started',
   approve: 'Approved',
+  edit: 'Edited',
   're-search': 'Re-searched',
   regen_image: 'Regen Image',
   regen_text_and_image: 'Regen All',
   refine: 'Refined',
+}
+
+// Active agent mapping for processing states
+const ACTIVE_AGENT = {
+  starting: 'Trend Analyzer',
+  approved_trend: 'Audience Analyzer',
+  audience_approved: 'Writer',
+  approved_text: 'Image Generator',
+  publisher: 'Publisher',
 }
 
 // ── Sidebar Component ──────────────────────────────────────────────────────
@@ -220,6 +249,13 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
             )
           })}
         </nav>
+        {/* Active agent indicator */}
+        {ACTIVE_AGENT[status] && (
+          <div className="sidebar-active-agent">
+            <span className="sidebar-active-dot" />
+            <span className="sidebar-active-label">Running: {ACTIVE_AGENT[status]}</span>
+          </div>
+        )}
       </SidebarSection>
 
       {/* ── Section 2: Campaign Summary ── */}
@@ -250,6 +286,13 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
             <div className="sidebar-meta-item">
               <span className="sidebar-meta-label">Audience</span>
               <span className="meta-tag">{state.target_audience.replace(/_/g, ' ')}</span>
+            </div>
+          )}
+
+          {state?.visual_style_preset && (
+            <div className="sidebar-meta-item">
+              <span className="sidebar-meta-label">Photo Style</span>
+              <span className="meta-tag">{state.visual_style_preset.replace(/_/g, ' ')}</span>
             </div>
           )}
 
@@ -319,7 +362,33 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
         </div>
       </SidebarSection>
 
-      {/* ── Section 3: News Sources ── */}
+      {/* ── Section 3: Agent Prompts ── */}
+      {(state?.prompt_log?.length > 0) && (
+        <SidebarSection
+          title="Agent Prompts"
+          count={state.prompt_log.length}
+          defaultOpen={false}
+        >
+          <div className="sidebar-prompt-log">
+            {state.prompt_log.map((entry, i) => (
+              <div key={i} className="sidebar-prompt-entry">
+                <div className="sidebar-prompt-agent">{entry.agent}</div>
+                <p className="sidebar-prompt-summary">{entry.summary}</p>
+                <div className="sidebar-prompt-flags">
+                  {entry.user_guidance && <span className="meta-tag small">user guidance</span>}
+                  {entry.user_keywords && <span className="meta-tag small">user keywords</span>}
+                  {entry.text_feedback && <span className="meta-tag small">text feedback</span>}
+                  {entry.image_feedback && <span className="meta-tag small">image feedback</span>}
+                  {entry.audience_feedback && <span className="meta-tag small">audience feedback</span>}
+                  {entry.writer_prompt_override && <span className="meta-tag small">custom prompt</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </SidebarSection>
+      )}
+
+      {/* ── Section 4: News Sources ── */}
       <SidebarSection
         title="News Sources"
         count={allNews.length}
@@ -341,7 +410,7 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
         )}
       </SidebarSection>
 
-      {/* ── Section 4: User Input History ── */}
+      {/* ── Section 5: User Input History ── */}
       <SidebarSection
         title="Your Inputs"
         count={inputHistory.length}
@@ -354,13 +423,24 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
         ) : (
           <div className="sidebar-input-list">
             {[...inputHistory].reverse().map((entry, i) => (
-              <div key={i} className={`sidebar-input-entry ${i === 0 ? 'latest' : ''}`}>
+              <div key={i}>
+                {entry.step === 'done_refine' && (
+                  <div className="sidebar-input-divider">Refinement</div>
+                )}
+              <div className={`sidebar-input-entry ${i === 0 ? 'latest' : ''}`}>
                 <div className="sidebar-input-header">
                   <span className="sidebar-input-step">
                     {STEP_LABELS[entry.step] || entry.step}
                   </span>
-                  <span className="sidebar-input-action">
-                    {ACTION_LABELS[entry.action] || entry.action}
+                  <span className="sidebar-input-right">
+                    <span className="sidebar-input-action">
+                      {ACTION_LABELS[entry.action] || entry.action}
+                    </span>
+                    {entry.timestamp && (
+                      <span className="sidebar-input-time">
+                        {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </span>
                 </div>
                 {entry.keywords && (
@@ -378,9 +458,13 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
                 {entry.feedback && (
                   <p className="sidebar-input-text">Feedback: "{entry.feedback}"</p>
                 )}
+                {entry.targetAudience && (
+                  <p className="sidebar-input-text">Audience: "{entry.targetAudience}"</p>
+                )}
                 {entry.refineTarget && (
                   <p className="sidebar-input-text">Target: {entry.refineTarget}</p>
                 )}
+              </div>
               </div>
             ))}
           </div>

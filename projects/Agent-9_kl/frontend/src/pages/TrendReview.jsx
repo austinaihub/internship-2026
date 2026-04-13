@@ -38,6 +38,7 @@ export default function TrendReview({ state, sessionId, onUpdate, recordInput })
       onUpdate(data.state)
     } catch (err) {
       alert(err.message)
+    } finally {
       setLoading(false)
     }
   }
@@ -50,6 +51,7 @@ export default function TrendReview({ state, sessionId, onUpdate, recordInput })
       onUpdate(data.state)
     } catch (err) {
       alert(err.message)
+    } finally {
       setLoading(false)
     }
   }

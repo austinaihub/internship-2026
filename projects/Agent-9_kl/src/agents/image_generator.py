@@ -51,6 +51,7 @@ class ImageGeneratorAgent:
             print("WARNING: GEMINI_API_KEY is not set.")
         self.genai_client = genai.Client(api_key=api_key)
         self._visual_philosophy = self._load_visual_philosophy()
+        self._visual_styles = self._load_visual_styles()
 
     @staticmethod
     def _load_visual_philosophy() -> str:
@@ -60,6 +61,35 @@ class ImageGeneratorAgent:
                 return f.read()
         except FileNotFoundError:
             return ""
+
+    @staticmethod
+    def _load_visual_styles() -> dict:
+        """Load visual_styles.md and parse into {preset_name: section_text} dict."""
+        path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "visual_styles.md"))
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except FileNotFoundError:
+            return {}
+
+        styles = {}
+        current_key = None
+        current_lines = []
+        for line in content.split("\n"):
+            if line.startswith("## ") and not line.startswith("## Visual"):
+                if current_key:
+                    styles[current_key] = "\n".join(current_lines).strip()
+                current_key = line[3:].strip()
+                current_lines = []
+            elif current_key is not None:
+                current_lines.append(line)
+        if current_key:
+            styles[current_key] = "\n".join(current_lines).strip()
+        return styles
+
+    def _get_style_preset_text(self, preset_name: str) -> str:
+        """Get the full style description for a preset, with fallback."""
+        return self._visual_styles.get(preset_name, self._visual_styles.get("cinematic_depth", ""))
 
     # ------------------------------------------------------------------
     # Phase 1: Generate pure photography background (no text)
@@ -78,10 +108,15 @@ class ImageGeneratorAgent:
             return {"status": "error", "feedback": "No post text available."}
 
         visual_style = state.get("visual_style") or "Cinematic teal-and-orange grade, dramatic chiaroscuro lighting, gritty urban texture."
+        visual_style_preset = state.get("visual_style_preset") or "cinematic_depth"
         visual_elements = state.get("visual_elements") or ""
         trend_topic = state.get("trend_topic") or ""
         trend_context = state.get("trend_context") or ""
         user_guidance = state.get("user_guidance") or ""
+
+        # Load the full style preset description
+        style_preset_text = self._get_style_preset_text(visual_style_preset)
+        print(f"--- IMAGE GENERATOR: Using style preset '{visual_style_preset}' ---")
 
         # ── 1a. Generate image prompt (photography only, NO text) ──────────
         prompt_maker = ChatPromptTemplate.from_template(
@@ -91,28 +126,27 @@ class ImageGeneratorAgent:
             DESIGN PHILOSOPHY:
             {visual_philosophy}
 
-            YOUR TASK: Create ONE image prompt — a single, striking photograph with
-            one focal subject and expansive negative space. Less is more.
+            PHOTOGRAPHY STYLE — {style_preset_name}:
+            {style_preset_text}
+
+            YOUR TASK: Create ONE image prompt following the photography style above.
+            The style defines the lighting, background, composition, palette, and camera.
+            You MUST follow these style rules strictly — they are non-negotiable.
 
             EVENT:
             Headline: {topic}
             Context: {context}
 
-            VISUAL STYLE: {visual_style}
+            AUDIENCE COLOR/MOOD DIRECTION: {visual_style}
 
             VISUAL ANCHOR (build the image around this ONE detail):
             {visual_elements}
 
-            {user_guidance_block}
-
-            RULES:
+            ADDITIONAL RULES:
             1. ONE subject only. Do not combine multiple symbols or metaphors.
-            2. 50-60% of the frame must be negative space (blur, shadow, sky, gradient).
-            3. Shallow depth of field — sharp subject, soft everything else.
-            4. 2-3 color tones maximum. Let the palette breathe.
-            5. Bottom 25% of frame: dark or uncluttered (text overlay zone).
-            6. Depict WHERE the event happened, not where it was discussed.
-            7. No text, headlines, or captions in the image.
+            2. Bottom 25% of frame: dark or uncluttered (text overlay zone).
+            3. Depict WHERE the event happened, not where it was discussed.
+            4. No text, headlines, or captions in the image.
 
             SAFETY (absolute):
             - Human figures allowed but COMPLETELY ANONYMOUS (silhouettes, backs
@@ -123,30 +157,34 @@ class ImageGeneratorAgent:
             - No degrading depictions of victims.
             - When in doubt, choose a symbolic object over a human figure.
 
-            OUTPUT: One dense paragraph. Describe: the single subject, its environment
-            (minimal), camera angle and lens, lighting, and the negative space.
+            OUTPUT: One dense paragraph. Describe: the single subject, its environment,
+            camera angle and lens, lighting (per the style), and the negative space.
             Keep it under 120 words. Pure photography, no text.
             """
         )
 
-        # Build optional user guidance block
-        user_guidance_block = ""
-        if user_guidance:
-            user_guidance_block = f"USER CREATIVE DIRECTION (incorporate this into the scene):\n{user_guidance}"
-
         chain = prompt_maker | self.llm
         image_prompt = chain.invoke({
             "visual_philosophy": self._visual_philosophy,
+            "style_preset_name": visual_style_preset,
+            "style_preset_text": style_preset_text,
             "topic": trend_topic,
             "context": trend_context,
             "visual_style": visual_style,
             "visual_elements": visual_elements,
-            "user_guidance_block": user_guidance_block,
         }).content
 
+        # Front-load user guidance (primacy bias is stronger for image gen models)
+        if user_guidance:
+            image_prompt = (
+                f"HIGH PRIORITY — USER DIRECTIVE: {user_guidance}\n\n"
+                f"{image_prompt}"
+            )
+
+        # Append rejection feedback at end (CRITICAL priority)
         feedback = state.get("image_feedback")
         if feedback:
-            image_prompt += f"\nCRITICAL INSTRUCTION FROM USER FOR REGENERATION: {feedback}"
+            image_prompt += f"\nCRITICAL — USER REJECTION FEEDBACK (this MUST be addressed, non-negotiable): {feedback}"
 
         print(f"Generated Image Prompt: {image_prompt}")
 
@@ -223,7 +261,13 @@ class ImageGeneratorAgent:
                 "image_prompt": image_prompt,
                 "image_path": final_path,
                 "overlay_text": overlay_text,
-                "status": "approving_image"
+                "status": "approving_image",
+                "prompt_log": [{
+                    "agent": "image_generator",
+                    "summary": image_prompt[:200],
+                    "user_guidance": bool(user_guidance),
+                    "image_feedback": bool(feedback),
+                }],
             }
         except Exception as e:
             print(f"ERROR: Image Generation Failed: {e}")

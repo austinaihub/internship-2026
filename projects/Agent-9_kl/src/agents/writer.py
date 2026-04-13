@@ -56,36 +56,57 @@ class WriterAgent:
             )
 
         from langchain_core.messages import SystemMessage, HumanMessage
-        
+
         system_msg = SystemMessage(content=WRITER_SYSTEM_PROMPT)
-        
+
         human_content = f"Topic: {topic}\nContext: {context}"
-        
+
         # Inject audience targeting if available
         audience_brief = state.get("audience_brief")
         if audience_brief:
             human_content += f"\nTarget Audience: {state.get('target_audience')}\nAudience Brief: {audience_brief}"
-        
-        # User creative guidance from trend review HITL
-        user_guidance = state.get("user_guidance")
-        if user_guidance:
-            human_content += f"\n\nUSER CREATIVE DIRECTION: {user_guidance}"
 
         human_content += retry_instruction
         human_content += refinement_instruction
-        
+
         # If user provided a custom writer_prompt via HITL, use it as the human message instead
         writer_prompt = state.get("writer_prompt")
         if writer_prompt:
             human_content = writer_prompt + retry_instruction + refinement_instruction
-        
-        response = self.llm.invoke([
-            system_msg,
-            HumanMessage(content=human_content)
-        ])
+
+        # Build message list with priority-aware user guidance injection
+        user_guidance = state.get("user_guidance")
+        messages = [system_msg]
+
+        # HIGH PRIORITY — SystemMessage for authority bias (sandwich layer 1)
+        if user_guidance:
+            messages.append(SystemMessage(content=(
+                "HIGH PRIORITY — USER DIRECTIVE (you MUST follow this creative direction):\n"
+                f"{user_guidance}\n\n"
+                "This takes precedence over the audience brief's default tone. "
+                "Adapt your writing to satisfy this direction first."
+            )))
+
+        messages.append(HumanMessage(content=human_content))
+
+        # Recency bias reinforcement (sandwich layer 2)
+        if user_guidance:
+            messages.append(HumanMessage(content=(
+                f"REMINDER — The user specifically requested: {user_guidance}. "
+                "Ensure your output reflects this."
+            )))
+
+        response = self.llm.invoke(messages)
         
         return {
             "post_text": response.content,
             "text_feedback": None,       # Clear feedback after use
-            "status": "approved_text"
+            "status": "approved_text",
+            "prompt_log": [{
+                "agent": "writer",
+                "summary": f"Audience: {state.get('target_audience', 'N/A')}, Topic: {topic[:60]}",
+                "user_guidance": bool(user_guidance),
+                "text_feedback": bool(text_feedback),
+                "writer_prompt_override": bool(writer_prompt),
+            }],
         }

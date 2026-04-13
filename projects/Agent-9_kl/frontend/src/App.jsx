@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { getState, startCampaign } from './api'
 import Sidebar from './components/Sidebar'
 import TrendReview from './pages/TrendReview'
+import AudienceReview from './pages/AudienceReview'
 import ImageReview from './pages/ImageReview'
 import DonePage from './pages/DonePage'
 
-const PAUSE_STATES = ['approving_trend', 'approving_image', 'done', 'error']
+const PAUSE_STATES = ['approving_trend', 'approving_audience', 'approving_image', 'done', 'error']
 
 // ── Start Section (full-screen, no sidebar) ─────────────────────────────────
 function StartSection({ onStart }) {
@@ -145,6 +146,7 @@ export default function App() {
     audience_approved: 'Writing post...',
     audience_selected: 'Analyzing audience...',
     approved_text: 'Generating image...',
+    publisher: 'Publishing...',
   }
   const isProcessing = status && !PAUSE_STATES.includes(status)
 
@@ -160,6 +162,19 @@ export default function App() {
             <div className="fade-in">
               <h1 className="main-title">Review News Topic</h1>
               <TrendReview
+                state={cs}
+                sessionId={sessionId}
+                onUpdate={handleUpdate}
+                recordInput={recordInput}
+              />
+            </div>
+          )}
+
+          {/* Audience Review HITL */}
+          {status === 'approving_audience' && (
+            <div className="fade-in">
+              <h1 className="main-title">Review Audience Strategy</h1>
+              <AudienceReview
                 state={cs}
                 sessionId={sessionId}
                 onUpdate={handleUpdate}

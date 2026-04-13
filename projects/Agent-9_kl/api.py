@@ -92,6 +92,16 @@ class ApproveTrendRequest(BaseModel):
     guidance: Optional[str] = None  # Optional creative direction for downstream agents
 
 
+class ApproveAudienceRequest(BaseModel):
+    action: str  # "approve" | "edit"
+    target_audience: Optional[str] = None
+    audience_brief: Optional[str] = None
+    visual_style_preset: Optional[str] = None  # rembrandt | editorial_flat | fog_silence | cinematic_depth
+    visual_style: Optional[str] = None
+    visual_elements: Optional[str] = None
+    guidance: Optional[str] = None  # Updated creative direction
+
+
 class ApproveImageRequest(BaseModel):
     action: str  # "approve" | "reject"
     feedback: Optional[str] = None
@@ -243,6 +253,49 @@ def _re_extract_context(topic: str, articles: list, system_instruction: str) -> 
     return resp.content
 
 
+@app.post("/api/campaign/{session_id}/approve-audience")
+def approve_audience(session_id: str, req: ApproveAudienceRequest):
+    """
+    Handle audience review HITL checkpoint.
+    Actions:
+      'approve' — accept audience decision as-is
+      'edit'    — override audience fields with user-provided values (hard override, no LLM)
+    """
+    session = _get_session(session_id)
+    graph = session["app"]
+    config = session["config"]
+
+    update = {"status": "audience_approved"}
+
+    if req.action == "edit":
+        # Hard override — directly patch state fields, bypassing LLM
+        if req.target_audience and req.target_audience.strip():
+            update["target_audience"] = req.target_audience.strip()
+        if req.audience_brief and req.audience_brief.strip():
+            update["audience_brief"] = req.audience_brief.strip()
+        if req.visual_style_preset and req.visual_style_preset.strip():
+            update["visual_style_preset"] = req.visual_style_preset.strip()
+        if req.visual_style and req.visual_style.strip():
+            update["visual_style"] = req.visual_style.strip()
+        if req.visual_elements and req.visual_elements.strip():
+            update["visual_elements"] = req.visual_elements.strip()
+
+    # Style preset can also be changed in approve mode (without editing other fields)
+    if req.action == "approve" and req.visual_style_preset and req.visual_style_preset.strip():
+        update["visual_style_preset"] = req.visual_style_preset.strip()
+
+    # Update or add user guidance if provided
+    if req.guidance and req.guidance.strip():
+        update["user_guidance"] = req.guidance.strip()
+
+    graph.update_state(config, update)
+    snapshot = _run_until_interrupt(session)
+    return {
+        "state": _serialize_state(snapshot.values),
+        "has_next": bool(snapshot.next),
+    }
+
+
 @app.post("/api/campaign/{session_id}/approve-image")
 def approve_image(session_id: str, req: ApproveImageRequest):
     """
@@ -314,6 +367,7 @@ def refine_campaign(session_id: str, req: RefineRequest):
     }
 
     if req.target == "text_only":
+        # Audience already set → skip audience_analyzer, go directly to writer
         prefilled.update({
             "target_audience": current_state.get("target_audience"),
             "audience_brief": current_state.get("audience_brief"),
@@ -323,9 +377,10 @@ def refine_campaign(session_id: str, req: RefineRequest):
             "image_path": current_state.get("image_path"),
             "overlay_text": current_state.get("overlay_text"),
             "text_feedback": req.feedback,
-            "status": "approved_trend",
+            "status": "audience_approved",
         })
     elif req.target == "image_only":
+        # Audience already set → skip audience_analyzer, go directly to writer→image
         prefilled.update({
             "target_audience": current_state.get("target_audience"),
             "audience_brief": current_state.get("audience_brief"),
@@ -334,9 +389,10 @@ def refine_campaign(session_id: str, req: RefineRequest):
             "post_text": current_state.get("post_text"),
             "image_path": None,
             "image_feedback": req.feedback,
-            "status": "approved_trend",
+            "status": "audience_approved",
         })
     elif req.target == "both":
+        # Audience already set → skip audience_analyzer, go directly to writer
         prefilled.update({
             "target_audience": current_state.get("target_audience"),
             "audience_brief": current_state.get("audience_brief"),
@@ -345,9 +401,10 @@ def refine_campaign(session_id: str, req: RefineRequest):
             "post_text": None,
             "image_path": None,
             "text_feedback": req.feedback,
-            "status": "approved_trend",
+            "status": "audience_approved",
         })
     elif req.target == "audience":
+        # Audience needs re-analysis → go through audience_analyzer (will interrupt for review)
         prefilled.update({
             "target_audience": None,
             "audience_brief": None,

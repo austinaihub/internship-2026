@@ -11,6 +11,7 @@ class AgentState(TypedDict):
     target_audience: Optional[str]      # e.g. "college_students", "educators"
     audience_brief: Optional[str]       # Tone/focus/CTA direction for Writer
     visual_style: Optional[str]         # Complete visual style brief for Image Generator
+    visual_style_preset: Optional[str]  # One of: rembrandt, editorial_flat, fog_silence, cinematic_depth
     visual_elements: Optional[str]      # Event-specific visual anchors from AudienceAnalyzer
     writer_prompt: Optional[str]        # Evaluated prompt for the writer
     post_text: Optional[str]
@@ -30,3 +31,6 @@ class AgentState(TypedDict):
     run_id: Optional[str]               # Unique ID per pipeline run
     retry_counts: Optional[dict]        # {"writer": 0, "image_generator": 0, ...}
     messages: Annotated[List[BaseMessage], operator.add]  # Inter-agent message log
+
+    # --- Prompt Transparency ---
+    prompt_log: Annotated[List[dict], operator.add]  # Each agent appends {"agent": "...", "summary": "...", ...}

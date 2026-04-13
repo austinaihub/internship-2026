@@ -47,18 +47,29 @@ def _save_used_topic(topic: str):
         json.dump(entries, f, indent=2, ensure_ascii=False)
 
 # ---------------------------------------------------------------------------
-# Diverse query pool — each focuses on a specific trafficking angle.
-# Exa's neural search understands intent, so natural-language queries work best.
+# Diverse query pool — balanced across 4 dimensions.
+# Exa neural search works best with natural-language intent queries.
 # ---------------------------------------------------------------------------
 SEARCH_QUERIES = [
+    # ── Law enforcement & prosecution (3) ──
     "human trafficking conviction sentencing court ruling this week",
-    "new anti-trafficking law bill passed legislation signed",
-    "forced labor supply chain factory raid workers rescued",
-    "online sextortion minors social media platform arrest",
-    "trafficking survivor support program launched or expanded",
-    "cross-border trafficking ring dismantled police operation",
-    "labor exploitation migrant workers visa fraud indictment",
-    "sex trafficking sting operation arrests charged",
+    "cross-border trafficking ring dismantled by police operation",
+    "sex trafficking or labor trafficking arrests and charges filed",
+
+    # ── Policy & legislation (2) ──
+    "new anti-trafficking law or bill passed in any country",
+    "government report on human trafficking policy gaps or recommendations",
+
+    # ── Industry & labor exploitation (3) ──
+    "forced labor in agriculture construction hospitality or fishing exposed",
+    "supply chain audit reveals labor exploitation or worker abuse",
+    "migrant workers exploited through visa fraud or debt bondage",
+
+    # ── Technology, prevention & survivors (4) ──
+    "technology or AI tools used to detect or combat human trafficking",
+    "social media platform action against trafficking or sextortion",
+    "trafficking survivor story recovery support program",
+    "community prevention program or awareness campaign against trafficking",
 ]
 
 class TrendAnalyzer:
@@ -165,5 +176,11 @@ class TrendAnalyzer:
             "trend_context": final_response.context,
             "raw_news": filtered_news_list,
             "all_retrieved_news": raw_news_list,
-            "status": "approving_trend"  # HITL: pause for user review
+            "status": "approving_trend",  # HITL: pause for user review
+            "prompt_log": [{
+                "agent": "trend_analyzer",
+                "summary": f"Searched {len(selected_queries)} queries: {selected_queries}",
+                "user_keywords": bool(user_keywords),
+                "articles_found": len(articles_content),
+            }],
         }

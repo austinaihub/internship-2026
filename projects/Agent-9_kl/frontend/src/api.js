@@ -43,6 +43,22 @@ export function approveTrend(sessionId, { action, customTopic, selectedArticleTi
   });
 }
 
+/** Approve or edit at the audience review checkpoint */
+export function approveAudience(sessionId, { action, targetAudience, audienceBrief, visualStylePreset, visualStyle, visualElements, guidance }) {
+  return request(`/api/campaign/${sessionId}/approve-audience`, {
+    method: 'POST',
+    body: JSON.stringify({
+      action,
+      target_audience: targetAudience || null,
+      audience_brief: audienceBrief || null,
+      visual_style_preset: visualStylePreset || null,
+      visual_style: visualStyle || null,
+      visual_elements: visualElements || null,
+      guidance: guidance || null,
+    }),
+  });
+}
+
 /** Approve or reject at the image review checkpoint */
 export function approveImage(sessionId, { action, feedback }) {
   return request(`/api/campaign/${sessionId}/approve-image`, {

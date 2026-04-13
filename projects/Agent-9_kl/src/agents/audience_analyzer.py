@@ -13,7 +13,8 @@ from src.state import AgentState
 class AudienceDecision(BaseModel):
     target_audience: str = Field(description="Audience key, e.g. 'college_students', 'educators', 'business_owners', 'parents', 'lawmakers', 'general_public'.")
     audience_brief: str = Field(description="2-3 sentence writing direction for the Writer: tone, focus area, and CTA style for this audience.")
-    visual_style: str = Field(description="Short visual direction for the Image Generator: color palette (2-3 tones), lighting mood, and overall feel. Keep it under 25 words.")
+    visual_style_preset: str = Field(description="One of: 'rembrandt', 'editorial_flat', 'fog_silence', 'cinematic_depth'. Choose the photography style that best matches the story's emotional weight and the audience.")
+    visual_style: str = Field(description="Short visual direction for the Image Generator: color palette (2-3 tones), lighting mood, and overall feel. Keep it under 25 words. This supplements the preset with audience-specific color/mood tweaks.")
     visual_elements: str = Field(
         description=(
             "ONE single visual anchor extracted from THIS news event — the most powerful, "
@@ -39,13 +40,21 @@ Given a news story and a reference table of audience profiles, you must:
 1. Analyze the story content — who does it affect? what domain is it in?
 2. Match it to the SINGLE best audience from the profiles table.
 3. Output a writing brief (tone + focus + CTA) tailored to that audience.
-4. Output a visual style brief: 2-3 color tones + lighting mood + overall feel. Keep it short (~20 words). Do NOT list specific scenes or objects — just the aesthetic direction.
-5. Extract ONE single visual anchor from the story — the most striking, concrete detail (a place, an object, a moment). Not a list of scenes. One powerful image in one sentence.
-6. ANONYMITY RULE: If describing people, use ONLY anonymous depictions — silhouettes, hands, backs of heads. NEVER name real individuals.
+4. Choose a visual_style_preset — one of the 4 photography styles below.
+5. Output a visual_style brief: 2-3 color tones + lighting mood (~20 words). This supplements the preset with audience-specific color/mood tweaks.
+6. Extract ONE single visual anchor from the story — one concrete detail (a place, an object, a moment). One sentence.
+7. ANONYMITY RULE: If describing people, use ONLY anonymous depictions — silhouettes, hands, backs of heads. NEVER name real individuals.
+
+VISUAL STYLE PRESETS (choose ONE):
+- "rembrandt" — Clean dark studio backdrop, single 45-degree key light, Rembrandt triangle shadow. Dramatic, sculptural, classical. Best for: grave/powerful stories, law enforcement, individual human focus.
+- "editorial_flat" — Overhead or orthographic, solid-color surface, shadowless diffused light. Graphic, clean, contemporary design. Best for: policy/compliance topics, objects/documents, institutional stories.
+- "fog_silence" — Fog/mist/haze fills 70-80% of frame, subject tiny and distant, near-monochrome. Poetic, ethereal, maximum emptiness. Best for: survivor stories, emotional/contemplative topics, systemic issues.
+- "cinematic_depth" — Shallow DOF, bokeh background, dramatic chiaroscuro. Magazine-cover photojournalism. Best for: breaking news, action-oriented stories, general awareness.
+
+Each audience profile lists a "Preferred Style Preset" — use it as a starting hint, but override if the story's emotional weight demands a different style.
 
 VISUAL PHILOSOPHY — Less Is More:
-- The campaign images use a minimalist design language: one subject, expansive negative space, restrained palette.
-- Your visual_style and visual_elements should support this — give the Image Generator a clear, focused direction, not a shopping list of elements.
+- One subject, expansive negative space, restrained palette.
 - Do NOT suggest multiple metaphors, symbols, or scenes. One anchor is enough.
 
 Rules:
@@ -106,33 +115,47 @@ class AudienceAnalyzer:
             ))
         ]
 
-        # User creative guidance from trend review HITL
+        # User creative guidance from trend review HITL — HIGH PRIORITY via SystemMessage
         user_guidance = state.get("user_guidance")
         if user_guidance:
-            messages.append(HumanMessage(content=(
-                f"USER CREATIVE DIRECTION: The user has provided the following guidance "
-                f"for this campaign. Factor this into your audience selection, visual style, "
-                f"and visual elements decisions:\n{user_guidance}"
+            messages.insert(1, SystemMessage(content=(
+                "HIGH PRIORITY — USER DIRECTIVE (you MUST incorporate this):\n"
+                f"{user_guidance}\n\n"
+                "This directive takes precedence over default audience matching heuristics. "
+                "If the user's direction conflicts with the standard audience profiles, "
+                "favor the user's direction."
             )))
 
-        # Refinement feedback from user (after final review)
+        # Refinement feedback from user (after final review) — CRITICAL priority
         audience_feedback = state.get("audience_feedback")
         if audience_feedback:
             previous_audience = state.get("target_audience", "unknown")
             messages.append(HumanMessage(content=(
-                f"REFINEMENT: The previous audience was '{previous_audience}'. "
-                f"The user wants to change the targeting. Their feedback:\n{audience_feedback}\n\n"
-                f"Choose a different or adjusted audience based on this feedback."
+                "CRITICAL — USER REJECTION FEEDBACK (this MUST be addressed, non-negotiable):\n"
+                f"The previous audience was '{previous_audience}'. "
+                f"The user wants to change the targeting:\n{audience_feedback}\n\n"
+                f"Choose a different audience based on this feedback."
             )))
 
         decision: AudienceDecision = self.llm.invoke(messages)
         print(f"--- AUDIENCE ANALYZER: Selected '{decision.target_audience}' | Reason: {decision.reasoning} ---")
 
+        # Validate preset — fallback to cinematic_depth if invalid
+        valid_presets = {"rembrandt", "editorial_flat", "fog_silence", "cinematic_depth"}
+        preset = decision.visual_style_preset if decision.visual_style_preset in valid_presets else "cinematic_depth"
+
         return {
             "target_audience": decision.target_audience,
             "audience_brief": decision.audience_brief,
+            "visual_style_preset": preset,
             "visual_style": decision.visual_style,
             "visual_elements": decision.visual_elements,
             "audience_feedback": None,   # Clear feedback after use
-            "status": "audience_approved",
+            "status": "approving_audience",
+            "prompt_log": [{
+                "agent": "audience_analyzer",
+                "summary": f"Selected '{decision.target_audience}' / style: {preset} — {decision.reasoning}",
+                "user_guidance": bool(user_guidance),
+                "audience_feedback": bool(audience_feedback),
+            }],
         }

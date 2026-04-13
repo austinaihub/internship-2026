@@ -57,6 +57,10 @@ class SupervisorAgent:
             return {"next": "audience_analyzer"}
         if status == "approved_trend":
             return {"next": "audience_analyzer"}
+        if status == "approving_audience":
+            return {"next": "writer"}
+        if status == "audience_approved":
+            return {"next": "writer"}
         if status == "publisher":
             return {"next": "publisher"}
         if status == "approving_image":

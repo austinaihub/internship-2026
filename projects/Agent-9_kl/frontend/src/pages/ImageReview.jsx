@@ -24,6 +24,7 @@ export default function ImageReview({ state, sessionId, onUpdate, recordInput })
       onUpdate(data.state)
     } catch (err) {
       alert(err.message)
+    } finally {
       setLoading(false)
       setLoadingAction(null)
     }
@@ -47,6 +48,21 @@ export default function ImageReview({ state, sessionId, onUpdate, recordInput })
             {imageUrl && (
               <div className="image-preview">
                 <img src={imageUrl} alt="Generated campaign visual" />
+                <button
+                  className="btn-save-image"
+                  onClick={async () => {
+                    const res = await fetch(imageUrl)
+                    const blob = await res.blob()
+                    const a = document.createElement('a')
+                    a.href = URL.createObjectURL(blob)
+                    a.download = imageUrl.split('/').pop() || 'campaign-image.png'
+                    a.click()
+                    URL.revokeObjectURL(a.href)
+                  }}
+                  title="Save image"
+                >
+                  &#8681; Save
+                </button>
               </div>
             )}
           </div>

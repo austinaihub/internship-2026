@@ -56,7 +56,7 @@ def create_graph():
 
     app = workflow.compile(
         checkpointer=memory,
-        interrupt_after=["trend_analyzer", "image_generator"]
+        interrupt_after=["trend_analyzer", "audience_analyzer", "image_generator"]
     )
 
     return app

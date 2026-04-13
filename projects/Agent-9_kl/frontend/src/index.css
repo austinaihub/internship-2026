@@ -925,6 +925,7 @@ body {
 
 /* ── Image Container ──────────────────────────────────────── */
 .image-preview {
+  position: relative;
   width: 100%;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -935,6 +936,31 @@ body {
   width: 100%;
   height: auto;
   display: block;
+}
+
+.btn-save-image {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.image-preview:hover .btn-save-image {
+  opacity: 1;
+}
+
+.btn-save-image:hover {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 /* ── Result Grid ──────────────────────────────────────────── */
@@ -1034,4 +1060,221 @@ body {
   .radio-group-horizontal {
     flex-direction: column;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Audience Review Page
+   ═══════════════════════════════════════════════════════════════ */
+
+.audience-tag {
+  display: inline-block;
+  padding: 6px 16px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
+}
+
+.audience-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.audience-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.audience-value {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height);
+  color: var(--text-primary);
+}
+
+/* ── Style Preset Selector ─────────────────────────────────── */
+
+.style-preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.style-preset-card {
+  position: relative;
+  display: flex;
+  padding: var(--space-md);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.style-preset-card:hover {
+  border-color: var(--border);
+}
+
+.style-preset-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--accent-light);
+}
+
+.style-preset-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.style-preset-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.style-preset-name {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.style-preset-desc {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.style-preset-mood {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .style-preset-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Sidebar Enhancements — Active Agent & Timestamps
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Active agent indicator */
+.sidebar-active-agent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-sm);
+  padding: 8px 12px;
+  background: var(--accent-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-small);
+  color: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+.sidebar-active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.sidebar-active-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Input history timestamp & layout */
+.sidebar-input-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-input-time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* Prompt log section */
+.sidebar-prompt-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sidebar-prompt-entry {
+  padding: var(--space-xs) var(--space-sm);
+  border-left: 2px solid var(--border-light);
+  font-size: var(--font-size-small);
+}
+
+.sidebar-prompt-agent {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  text-transform: capitalize;
+}
+
+.sidebar-prompt-summary {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sidebar-prompt-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.meta-tag.small {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+/* Refinement divider in input history */
+.sidebar-input-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: var(--space-sm) 0;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-input-divider::before,
+.sidebar-input-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-light);
 }
