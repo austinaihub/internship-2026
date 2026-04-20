@@ -215,22 +215,40 @@ class ImageGeneratorAgent:
             # Attempt 1: use the full cinematic prompt
             image_part, block_reason = self._call_gemini(image_prompt)
 
-            # Attempt 2: if blocked by safety, retry with a softened prompt
-            if image_part is None and "SAFETY" in (block_reason or "").upper():
-                print("--- IMAGE GENERATOR: Safety-blocked — retrying with softened prompt ---")
+            # Gemini 3 returns FinishReason.NO_IMAGE (generic refusal) or PROHIBITED_CONTENT
+            # in addition to the classic SAFETY block. Treat all three as retry-worthy.
+            def _is_refusal(reason: str | None) -> bool:
+                r = (reason or "").upper()
+                return any(k in r for k in ("SAFETY", "NO_IMAGE", "PROHIBITED", "BLOCK"))
+
+            # Attempt 2: softened prompt
+            if image_part is None and _is_refusal(block_reason):
+                print(f"--- IMAGE GENERATOR: Blocked ({block_reason}) — retrying with softened prompt ---")
                 softened_prompt = self._soften_prompt(image_prompt, trend_topic)
                 print(f"Softened Prompt: {softened_prompt[:200]}...")
                 image_part, block_reason = self._call_gemini(softened_prompt)
-                image_prompt = softened_prompt  # record what was actually used
+                image_prompt = softened_prompt
 
-            # Still no image after retry
+            # Attempt 3: ultra-minimal symbolic fallback (no distress cues at all)
+            if image_part is None and _is_refusal(block_reason):
+                print(f"--- IMAGE GENERATOR: Still blocked ({block_reason}) — falling back to minimal symbolic prompt ---")
+                fallback_prompt = self._minimal_fallback_prompt(trend_topic, visual_style_preset)
+                print(f"Fallback Prompt: {fallback_prompt[:200]}...")
+                image_part, block_reason = self._call_gemini(fallback_prompt)
+                image_prompt = fallback_prompt
+
+            # Still no image after all retries
             if image_part is None:
-                print(f"ERROR: Gemini returned no image after retry. Reason: {block_reason}")
+                print(f"ERROR: Gemini returned no image after all retries. Reason: {block_reason}")
                 return {
                     "image_prompt": image_prompt,
                     "image_path": None,
                     "status": "error",
-                    "feedback": f"Image generation was blocked by safety filters ({block_reason}). Try rephrasing the topic or softening the visual prompt."
+                    "feedback": (
+                        "Image generation was blocked by safety filters even after softening the prompt. "
+                        "Try a less sensitive angle on the topic, or add guidance like "
+                        "'use purely symbolic imagery, no human figures' in the audience step."
+                    )
                 }
 
             generated_image_part = image_part
@@ -355,6 +373,35 @@ OUTPUT: One paragraph, the rewritten prompt only."""
         }).content
 
         return softened
+
+    # ------------------------------------------------------------------
+    # Ultra-minimal fallback when even softening gets blocked
+    # ------------------------------------------------------------------
+    def _minimal_fallback_prompt(self, topic: str, style_preset: str = "editorial_flat") -> str:
+        """
+        Last-resort prompt: no people, no distress cues, no topic-specific
+        imagery. Just a symbolic still-life that Gemini will almost always
+        render. We keep the overlay text system to carry the message.
+        """
+        # Pick neutral symbolic objects — no human subjects at all
+        symbols = [
+            "a single open wooden door at the end of a softly lit corridor",
+            "one empty wooden chair in a quiet room, morning light through a window",
+            "a broken metal chain resting on weathered concrete",
+            "a small paper boat on still water under diffused grey sky",
+            "a single candle flame in near-darkness, surrounded by negative space",
+        ]
+        import random
+        symbol = random.choice(symbols)
+
+        return (
+            f"Minimalist editorial still-life photograph: {symbol}. "
+            f"50mm lens, shallow depth of field, muted desaturated palette of "
+            f"deep navy, warm cream, and soft amber. 60% negative space. "
+            f"Bottom 30% of frame is dark for text overlay. "
+            f"No people, no text, no words, no letters in the image. "
+            f"Quiet, contemplative, editorial tone. Shot for a National Geographic-style poster."
+        )
 
 
     def _composite_text_overlay(

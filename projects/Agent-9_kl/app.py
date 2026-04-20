@@ -6,7 +6,7 @@ load_dotenv()
 
 from src.workflow.graph import create_graph
 
-st.set_page_config(page_title="Agent-8 Control Dashboard", layout="wide")
+st.set_page_config(page_title="Campaign Agent Control Dashboard", layout="wide")
 
 # Initialize Session State Variables
 import datetime
@@ -18,7 +18,7 @@ if "app" not in st.session_state:
 if "agent_state" not in st.session_state:
     st.session_state.agent_state = None
 
-st.title("🤖 Agent-8 Multi-Agent System")
+st.title("🤖 Campaign Agent Multi-Agent System")
 
 # Create Dual Tabs
 tab_control, tab_analytics = st.tabs(["🎛️ Control Panel", "📈 LangSmith Analytics"])
@@ -37,7 +37,7 @@ with tab_control:
     if st.button("▶ Start Human Trafficking Trend Analysis"):
         st.info("Starting workflow...")
         try:
-            config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Agent-8 Campaign {st.session_state.thread_id}"}
+            config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Campaign Agent {st.session_state.thread_id}"}
             initial_state = {
                 "status": "starting",
                 "user_search_keywords": user_keywords.strip() if user_keywords.strip() else None
@@ -116,7 +116,7 @@ with tab_control:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("✅ Approve & Continue"):
-                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Agent-8 Campaign {st.session_state.thread_id}"}
+                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Campaign Agent {st.session_state.thread_id}"}
                     update = {"status": "approved_trend"}
                     
                     # Priority: custom_topic > selected article > AI recommendation
@@ -161,7 +161,7 @@ with tab_control:
                     
             with col2:
                 if st.button("🔄 Re-search (Find Different Topic)"):
-                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Agent-8 Campaign {st.session_state.thread_id}"}
+                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Campaign Agent {st.session_state.thread_id}"}
                     st.session_state.app.update_state(config, {
                         "trend_topic": None,
                         "trend_context": None,
@@ -186,7 +186,7 @@ with tab_control:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("✅ Approve Image & Publish"):
-                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Agent-8 Campaign {st.session_state.thread_id}"}
+                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Campaign Agent {st.session_state.thread_id}"}
                     st.session_state.app.update_state(config, {"status": "publisher"})
                     for event in st.session_state.app.stream(None, config, stream_mode="values"): pass
                     st.session_state.agent_state = st.session_state.app.get_state(config).values
@@ -194,7 +194,7 @@ with tab_control:
             with col2:
                 image_feedback = st.text_input("Critique/Feedback (optional):")
                 if st.button("🔄 Regenerate Image with Feedback"):
-                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Agent-8 Campaign {st.session_state.thread_id}"}
+                    config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Campaign Agent {st.session_state.thread_id}"}
                     st.session_state.app.update_state(config, {
                         "image_path": "REJECTED",
                         "image_feedback": image_feedback
@@ -309,7 +309,7 @@ with tab_control:
                                 "status": "approved_trend",
                             })
                         
-                        config = {"configurable": {"thread_id": new_thread_id}, "run_name": f"Agent-8 Refine {new_thread_id}"}
+                        config = {"configurable": {"thread_id": new_thread_id}, "run_name": f"Campaign Agent Refine {new_thread_id}"}
                         
                         with st.spinner("Refining campaign..."):
                             for event in st.session_state.app.stream(prefilled_state, config, stream_mode="values"):
@@ -329,7 +329,7 @@ with tab_control:
              
         elif status not in ["approving_trend", "approving_image", "error", "done"]:
             with st.spinner(f"Agent working on {status}..."):
-                config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Agent-8 Campaign {st.session_state.thread_id}"}
+                config = {"configurable": {"thread_id": st.session_state.thread_id}, "run_name": f"Campaign Agent {st.session_state.thread_id}"}
                 for event in st.session_state.app.stream(None, config, stream_mode="values"): pass
                 st.session_state.agent_state = st.session_state.app.get_state(config).values
                 st.rerun()

@@ -1,7 +1,34 @@
 import { useState, useEffect } from 'react'
 
+// ── Section Icons (monoline SVG) ───────────────────────────────────────────
+const SECTION_ICONS = {
+  campaign: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="10" height="11" rx="1.5" />
+      <path d="M6 2v2M10 2v2M5.5 7h5M5.5 10h3" />
+    </svg>
+  ),
+  prompts: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2l1.2 2.8L12 6l-2.8 1.2L8 10 6.8 7.2 4 6l2.8-1.2L8 2z" />
+      <path d="M12.5 11l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6.6-1.4z" />
+    </svg>
+  ),
+  news: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2.5" y="3.5" width="11" height="9" rx="1" />
+      <path d="M5 6h6M5 8.5h6M5 11h3.5" />
+    </svg>
+  ),
+  inputs: (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4.5c0-.8.7-1.5 1.5-1.5h7c.8 0 1.5.7 1.5 1.5v5c0 .8-.7 1.5-1.5 1.5H7l-3 2.5v-2.5h-.5c-.3 0-.5-.2-.5-.5v-6z" />
+    </svg>
+  ),
+}
+
 // ── Collapsible Section ────────────────────────────────────────────────────
-function SidebarSection({ title, count, defaultOpen = true, children }) {
+function SidebarSection({ title, icon, count, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen)
   const [hasAutoOpened, setHasAutoOpened] = useState(defaultOpen)
 
@@ -20,6 +47,7 @@ function SidebarSection({ title, count, defaultOpen = true, children }) {
         onClick={() => setOpen(!open)}
       >
         <span className="sidebar-section-title">
+          {icon && <span className="sidebar-section-icon">{SECTION_ICONS[icon]}</span>}
           {title}
           {count != null && count > 0 && (
             <span className="sidebar-section-count">{count}</span>
@@ -55,89 +83,6 @@ function StatusBadge({ status }) {
   const { label, className } = config[status] || { label: 'Processing', className: 'badge-blue' }
 
   return <span className={`badge ${className}`}>{label}</span>
-}
-
-// ── Step Definitions ───────────────────────────────────────────────────────
-const STEPS = [
-  { key: 'setup',    label: 'Campaign Setup' },
-  { key: 'topic',    label: 'News Topic' },
-  { key: 'audience', label: 'Audience Strategy' },
-  { key: 'writing',  label: 'Content Writing' },
-  { key: 'visual',   label: 'Visual Generation' },
-  { key: 'done',     label: 'Published' },
-]
-
-function getStepMode(stepKey, status, state) {
-  if (!status) return 'idle'
-
-  switch (stepKey) {
-    case 'setup':
-      return 'completed'
-
-    case 'topic':
-      if (status === 'approving_trend') return 'active'
-      if (state?.trend_topic && status !== 'approving_trend') return 'completed'
-      return 'loading'
-
-    case 'audience': {
-      const trendDone = state?.trend_topic && !['approving_trend', 'starting'].includes(status)
-      if (!trendDone) return 'idle'
-      if (status === 'approved_trend') return 'loading'
-      if (status === 'approving_audience') return 'active'
-      if (state?.target_audience) return 'completed'
-      return 'idle'
-    }
-
-    case 'writing': {
-      if (!state?.target_audience) return 'idle'
-      if (['approving_audience', 'approved_trend', 'starting', 'approving_trend'].includes(status)) return 'idle'
-      if (status === 'audience_approved') return 'loading'
-      if (state?.post_text && state.post_text !== 'REJECTED') return 'completed'
-      return 'idle'
-    }
-
-    case 'visual': {
-      if (!state?.post_text || state.post_text === 'REJECTED') return 'idle'
-      if (status === 'approved_text') return 'loading'
-      if (status === 'approving_image') return 'active'
-      if (status === 'done') return 'completed'
-      return 'idle'
-    }
-
-    case 'done':
-      if (status === 'done') return 'active'
-      return 'idle'
-
-    default:
-      return 'idle'
-  }
-}
-
-function getStepSummary(stepKey, state) {
-  if (!state) return null
-
-  switch (stepKey) {
-    case 'setup':
-      return state.user_search_keywords
-        ? `"${state.user_search_keywords}"`
-        : 'Auto discovery'
-    case 'topic':
-      return state.trend_topic || null
-    case 'audience':
-      return state.target_audience
-        ? state.target_audience.replace(/_/g, ' ')
-        : null
-    case 'writing':
-      return state.post_text && state.post_text !== 'REJECTED'
-        ? `${state.post_text.substring(0, 40)}...`
-        : null
-    case 'visual':
-      return null
-    case 'done':
-      return null
-    default:
-      return null
-  }
 }
 
 // ── Expandable Text ────────────────────────────────────────────────────────
@@ -196,7 +141,8 @@ const ACTIVE_AGENT = {
 
 // ── Sidebar Component ──────────────────────────────────────────────────────
 export default function Sidebar({ state, status, inputHistory = [] }) {
-  const allNews = state?.all_retrieved_news || []
+  const allNews = [...(state?.all_retrieved_news || [])]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
   const rawNews = state?.raw_news || []
 
   // Determine which articles were used by AI (by URL match)
@@ -207,59 +153,39 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
       {/* Logo + Badge */}
       <div className="sidebar-header">
         <div className="header-logo">
-          Agent-9 <span>Campaign</span>
+          Campaign <span>Agent</span>
         </div>
         {status && <StatusBadge status={status} />}
       </div>
 
       <hr className="divider" />
 
-      {/* ── Section 1: Workflow Steps ── */}
-      <SidebarSection title="Workflow" defaultOpen={true}>
-        <nav className="sidebar-stepper">
-          {STEPS.map((step) => {
-            const mode = getStepMode(step.key, status, state)
-            const summary = mode === 'completed' || mode === 'active'
-              ? getStepSummary(step.key, state)
-              : null
+      {/* ── Hero Card: current campaign snapshot ── */}
+      {(ACTIVE_AGENT[status] || state?.trend_topic || state?.target_audience) && (
+        <div className="sidebar-hero">
+          {ACTIVE_AGENT[status] && (
+            <div className="sidebar-hero-running">
+              <span className="sidebar-active-dot" />
+              <span>Running · {ACTIVE_AGENT[status]}</span>
+            </div>
+          )}
+          {state?.trend_topic && (
+            <div className="sidebar-hero-field">
+              <span className="sidebar-hero-label">Topic</span>
+              <p className="sidebar-hero-topic">{state.trend_topic}</p>
+            </div>
+          )}
+          {state?.target_audience && (
+            <div className="sidebar-hero-field">
+              <span className="sidebar-hero-label">Audience</span>
+              <span className="meta-tag">{state.target_audience.replace(/_/g, ' ')}</span>
+            </div>
+          )}
+        </div>
+      )}
 
-            const modeClass = {
-              completed: 'step-completed',
-              active: 'step-active',
-              loading: 'step-loading',
-              idle: 'step-idle',
-            }[mode] || 'step-idle'
-
-            const dotLabel = mode === 'completed'
-              ? '✓'
-              : mode === 'loading'
-              ? '⋯'
-              : STEPS.indexOf(step) + 1
-
-            return (
-              <div key={step.key} className={`sidebar-step ${modeClass}`}>
-                <div className="sidebar-step-dot">{dotLabel}</div>
-                <div className="sidebar-step-info">
-                  <div className="sidebar-step-label">{step.label}</div>
-                  {summary && (
-                    <div className="sidebar-step-summary">{summary}</div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </nav>
-        {/* Active agent indicator */}
-        {ACTIVE_AGENT[status] && (
-          <div className="sidebar-active-agent">
-            <span className="sidebar-active-dot" />
-            <span className="sidebar-active-label">Running: {ACTIVE_AGENT[status]}</span>
-          </div>
-        )}
-      </SidebarSection>
-
-      {/* ── Section 2: Campaign Summary ── */}
-      <SidebarSection title="Campaign" defaultOpen={true}>
+      {/* ── Section: Campaign Summary ── */}
+      <SidebarSection title="Campaign" icon="campaign" defaultOpen={true}>
         <div className="sidebar-meta">
           {state?.user_search_keywords && (
             <div className="sidebar-meta-item">
@@ -362,10 +288,11 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
         </div>
       </SidebarSection>
 
-      {/* ── Section 3: Agent Prompts ── */}
+      {/* ── Section: Agent Prompts ── */}
       {(state?.prompt_log?.length > 0) && (
         <SidebarSection
           title="Agent Prompts"
+          icon="prompts"
           count={state.prompt_log.length}
           defaultOpen={false}
         >
@@ -388,9 +315,10 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
         </SidebarSection>
       )}
 
-      {/* ── Section 4: News Sources ── */}
+      {/* ── Section: News Sources ── */}
       <SidebarSection
         title="News Sources"
+        icon="news"
         count={allNews.length}
         defaultOpen={allNews.length > 0}
       >
@@ -410,9 +338,10 @@ export default function Sidebar({ state, status, inputHistory = [] }) {
         )}
       </SidebarSection>
 
-      {/* ── Section 5: User Input History ── */}
+      {/* ── Section: User Input History ── */}
       <SidebarSection
         title="Your Inputs"
+        icon="inputs"
         count={inputHistory.length}
         defaultOpen={inputHistory.length > 0}
       >

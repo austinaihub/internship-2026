@@ -1,5 +1,5 @@
 /**
- * API client for Agent-9 backend.
+ * API client for Campaign Agent backend.
  * All endpoints return JSON with { state, session_id?, has_next? }
  */
 

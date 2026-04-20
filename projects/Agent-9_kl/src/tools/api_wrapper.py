@@ -38,20 +38,22 @@ def reliable_news_tool(max_retries=3, timeout_seconds=30):
                         url = item.get("url", "")
                         content = item.get("content", "")
                         timestamp = item.get("timestamp", "")
-                        
+                        score = item.get("score")
+
                         # Fallback Extraction Logic: If we have a URL but no substantial content
                         if url and (not content or len(content.strip()) < 50):
                             print(f"[Reliability Wrapper] Extracting full text via Crawl4AI for URL: {url}")
                             extracted = scraper.read_url(url)
                             if extracted:
                                 content = extracted
-                                
+
                         standardized_results.append({
                             "title": title,
                             "source": source,
                             "url": url,
                             "content": content,
-                            "timestamp": timestamp
+                            "timestamp": timestamp,
+                            "score": score,
                         })
                         
                     return standardized_results

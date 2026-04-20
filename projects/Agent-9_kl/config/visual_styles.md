@@ -1,4 +1,4 @@
-# Visual Style Presets — Agent-9 Campaign Imagery
+# Visual Style Presets — Campaign Agent Imagery
 
 Four distinct photography languages, all sharing the "Less Is More" core philosophy.
 Each style defines its own lighting, composition logic, and spatial treatment.

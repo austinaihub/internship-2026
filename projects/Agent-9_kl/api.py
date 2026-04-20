@@ -1,5 +1,5 @@
 """
-FastAPI backend for Agent-9 React frontend.
+FastAPI backend for Campaign Agent React frontend.
 Wraps the existing LangGraph workflow with REST endpoints.
 """
 
@@ -21,7 +21,7 @@ from src.workflow.graph import create_graph
 # App & CORS
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Agent-9 API", version="1.0.0")
+app = FastAPI(title="Campaign Agent API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -125,7 +125,7 @@ def start_campaign(req: StartRequest):
     graph = create_graph()
     config = {
         "configurable": {"thread_id": thread_id},
-        "run_name": f"Agent-9 Campaign {thread_id}"
+        "run_name": f"Campaign Agent Campaign {thread_id}"
     }
 
     session = {"app": graph, "thread_id": thread_id, "config": config}
@@ -353,7 +353,7 @@ def refine_campaign(session_id: str, req: RefineRequest):
     new_graph = create_graph()
     new_config = {
         "configurable": {"thread_id": new_thread_id},
-        "run_name": f"Agent-9 Refine {new_thread_id}"
+        "run_name": f"Campaign Agent Refine {new_thread_id}"
     }
     new_session = {"app": new_graph, "thread_id": new_thread_id, "config": new_config}
     sessions[new_session_id] = new_session

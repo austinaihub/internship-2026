@@ -1,80 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getState, startCampaign } from './api'
+import { getState } from './api'
 import Sidebar from './components/Sidebar'
+import WorkflowStepper from './components/WorkflowStepper'
+import LoadingScreen from './components/LoadingScreen'
+import StartPage from './pages/StartPage'
 import TrendReview from './pages/TrendReview'
 import AudienceReview from './pages/AudienceReview'
 import ImageReview from './pages/ImageReview'
 import DonePage from './pages/DonePage'
 
 const PAUSE_STATES = ['approving_trend', 'approving_audience', 'approving_image', 'done', 'error']
-
-// ── Start Section (full-screen, no sidebar) ─────────────────────────────────
-function StartSection({ onStart }) {
-  const [keywords, setKeywords] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-
-  const handleStart = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await startCampaign(keywords)
-      onStart(data.session_id, data.state, keywords)
-    } catch (err) {
-      setError(err.message)
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="page-center">
-      <div className="start-container fade-in">
-        <h1 className="hero-title">Agent-9</h1>
-        <p className="caption">Human Trafficking Awareness Campaign Generator</p>
-
-        <div style={{ textAlign: 'left', width: '100%' }}>
-          <label className="input-label" htmlFor="keywords">
-            Search Keywords (optional)
-          </label>
-          <input
-            id="keywords"
-            className="input"
-            type="text"
-            placeholder="e.g. 'forced labor', 'trafficking conviction' — blank for auto"
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleStart()}
-            disabled={loading}
-          />
-          <p className="input-help mb-lg">
-            Leave blank to use automated trend discovery with diverse queries.
-          </p>
-
-          <button
-            className="btn btn-primary btn-lg"
-            onClick={handleStart}
-            disabled={loading}
-            style={{ width: '100%' }}
-          >
-            {loading ? 'Starting...' : 'Start Campaign'}
-          </button>
-        </div>
-
-        {error && <div className="alert alert-error mt-sm">{error}</div>}
-      </div>
-    </div>
-  )
-}
-
-// ── Processing View ─────────────────────────────────────────────────────────
-function ProcessingView({ label }) {
-  return (
-    <div className="processing-view fade-in">
-      <div className="spinner" />
-      <span className="processing-label">{label}</span>
-    </div>
-  )
-}
 
 // ── Main App ────────────────────────────────────────────────────────────────
 export default function App() {
@@ -130,35 +65,23 @@ export default function App() {
     setInputHistory([])
   }, [])
 
-  // ── Pre-campaign: show full-screen start page ──────────────────────────
-  if (!sessionId) {
-    return <StartSection onStart={handleStart} />
-  }
-
-  // ── Campaign active: sidebar layout ────────────────────────────────────
-  const status = campaignState?.status
+  // ── Unified layout: always render app-shell + Sidebar + main ──────────
+  const status = sessionId ? campaignState?.status : 'pre_start'
   const cs = campaignState
-
-  // Determine processing label for intermediate states
-  const processingLabels = {
-    starting: 'Searching for news...',
-    approved_trend: 'Analyzing audience...',
-    audience_approved: 'Writing post...',
-    audience_selected: 'Analyzing audience...',
-    approved_text: 'Generating image...',
-    publisher: 'Publishing...',
-  }
-  const isProcessing = status && !PAUSE_STATES.includes(status)
+  const isProcessing = sessionId && status && !PAUSE_STATES.includes(status)
 
   return (
     <div className="app-shell">
       <Sidebar state={cs} status={status} inputHistory={inputHistory} />
 
-      <main className="main-content">
+      <main className="main-content main-content--with-footer">
         <div className="main-inner">
 
+          {/* Pre-campaign: Start page (owns its own hero) */}
+          {!sessionId && <StartPage onStart={handleStart} />}
+
           {/* Trend Review HITL */}
-          {status === 'approving_trend' && (
+          {sessionId && status === 'approving_trend' && (
             <div className="fade-in">
               <h1 className="main-title">Review News Topic</h1>
               <TrendReview
@@ -171,7 +94,7 @@ export default function App() {
           )}
 
           {/* Audience Review HITL */}
-          {status === 'approving_audience' && (
+          {sessionId && status === 'approving_audience' && (
             <div className="fade-in">
               <h1 className="main-title">Review Audience Strategy</h1>
               <AudienceReview
@@ -184,7 +107,7 @@ export default function App() {
           )}
 
           {/* Image + Text Review HITL */}
-          {status === 'approving_image' && (
+          {sessionId && status === 'approving_image' && (
             <div className="fade-in">
               <h1 className="main-title">Review Generated Content</h1>
               <ImageReview
@@ -197,7 +120,7 @@ export default function App() {
           )}
 
           {/* Done */}
-          {status === 'done' && (
+          {sessionId && status === 'done' && (
             <div className="fade-in">
               <h1 className="main-title">Campaign Published</h1>
               <DonePage
@@ -211,7 +134,7 @@ export default function App() {
           )}
 
           {/* Error */}
-          {status === 'error' && (
+          {sessionId && status === 'error' && (
             <div className="fade-in">
               <h1 className="main-title">Error</h1>
               <div className="alert alert-error mb-lg">
@@ -223,13 +146,14 @@ export default function App() {
             </div>
           )}
 
-          {/* Pipeline intermediate stages → processing indicator */}
-          {isProcessing && (
-            <ProcessingView
-              label={processingLabels[status] || 'Processing...'}
-            />
-          )}
+          {/* Pipeline intermediate stages → loading screen with rotating taglines */}
+          {isProcessing && <LoadingScreen status={status} />}
 
+        </div>
+
+        {/* Sticky workflow progress bar — always visible at bottom of main area */}
+        <div className="main-footer-workflow">
+          <WorkflowStepper state={cs} status={status} variant="horizontal" />
         </div>
       </main>
     </div>

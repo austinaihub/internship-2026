@@ -72,9 +72,57 @@ SEARCH_QUERIES = [
     "community prevention program or awareness campaign against trafficking",
 ]
 
+RELEVANCE_FILTER_PROMPT = """You are a strict relevance filter for a human trafficking news pipeline.
+
+KEEP only articles that are PRIMARILY about one of:
+- Sex trafficking
+- Labor trafficking / forced labor
+- Debt bondage
+- Trafficking-specific law enforcement, prosecution, legislation, survivor support, or prevention programs
+
+DISCARD articles about:
+- Drug trafficking, arms trafficking, wildlife trafficking
+- General immigration, refugees, or border policy (unless trafficking is the explicit frame)
+- General human rights, poverty, or labor disputes without trafficking
+- Unrelated crime, politics, or opinion pieces
+
+Each article has a Score (Exa neural-search relevance, 0-1). Treat it as a WEAK auxiliary signal:
+when topical relevance is borderline, prefer keeping higher-scored items; never keep a topically
+off-target article just because its score is high.
+
+Articles (indexed):
+{articles}
+
+Return a JSON object with a single key "keep" whose value is a list of the integer indices to keep.
+Example: {{"keep": [0, 3, 7]}}
+Only return the JSON, no prose."""
+
+
 class TrendAnalyzer:
     def __init__(self):
         self.llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        self.filter_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+    def _filter_relevant_articles(self, articles: list) -> list:
+        if not articles:
+            return articles
+        def _fmt_score(s):
+            return f"{s:.3f}" if isinstance(s, (int, float)) else "n/a"
+        indexed = "\n\n".join(
+            f"[{i}] Score: {_fmt_score(a.get('score'))} | Title: {a.get('title','')}\nURL: {a.get('url','')}\nSnippet: {a.get('content','')[:400]}"
+            for i, a in enumerate(articles)
+        )
+        prompt = ChatPromptTemplate.from_template(RELEVANCE_FILTER_PROMPT)
+        try:
+            raw = (prompt | self.filter_llm).invoke({"articles": indexed}).content
+            start, end = raw.find("{"), raw.rfind("}")
+            keep_idx = set(json.loads(raw[start:end+1]).get("keep", []))
+            filtered = [a for i, a in enumerate(articles) if i in keep_idx]
+            print(f"[Relevance Filter] {len(articles)} → {len(filtered)} articles kept")
+            return filtered if filtered else articles
+        except Exception as e:
+            print(f"[Relevance Filter] Failed ({e}); falling back to unfiltered list")
+            return articles
 
     def analyze_trends(self, state: AgentState):
         """
@@ -90,22 +138,40 @@ class TrendAnalyzer:
         if config.API_CONFIG.get("EXA_ENABLED", False):
             user_keywords = state.get("user_search_keywords")
             if user_keywords:
-                selected_queries = [user_keywords, random.choice(SEARCH_QUERIES)]
-                print(f"Using user keywords + 1 random: {selected_queries}")
+                selected_queries = [user_keywords] + random.sample(SEARCH_QUERIES, k=2)
+                print(f"Using user keywords + 2 random: {selected_queries}")
             else:
-                selected_queries = random.sample(SEARCH_QUERIES, k=2)
-                print(f"Using 2 random queries: {selected_queries}")
+                selected_queries = random.sample(SEARCH_QUERIES, k=3)
+                print(f"Using 3 random queries: {selected_queries}")
             try:
                 search_tool = ExaSearch()
+                SCORE_THRESHOLD = 0.10
                 for query in selected_queries:
-                    results = search_tool.search_news(query=query, num_results=3)
-                    articles_content.extend(results)
+                    results = search_tool.search_news(query=query, num_results=30)
+                    scores = [r.get("score") for r in results if isinstance(r.get("score"), (int, float))]
+                    if scores:
+                        print(f"[Exa] '{query[:60]}...' → {len(results)} raw, "
+                              f"score min/med/max = {min(scores):.3f}/{sorted(scores)[len(scores)//2]:.3f}/{max(scores):.3f}")
+                    else:
+                        print(f"[Exa] '{query[:60]}...' → {len(results)} raw (no scores)")
+                    high = [r for r in results if (r.get("score") or 0) >= SCORE_THRESHOLD]
+                    kept = high if high else results  # fallback: if threshold empties it, keep all
+                    if results and not high:
+                        print(f"[Exa] score threshold {SCORE_THRESHOLD} filtered everything; keeping all {len(results)}")
+                    articles_content.extend(kept)
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 print(f"Exa initialization/execution failed: {e}")
-                
+
         if not articles_content:
             print("WARNING: Exa search failed to retrieve articles.")
             return {"status": "error", "feedback": "News gathering failed."}
+
+        retrieved_count = len(articles_content)
+        articles_content = self._filter_relevant_articles(articles_content)
+        if not articles_content:
+            return {"status": "error", "feedback": "No relevant trafficking articles after filtering."}
 
         # Combine standard content and prepare raw news array
         combined_text_list = []
@@ -181,6 +247,7 @@ class TrendAnalyzer:
                 "agent": "trend_analyzer",
                 "summary": f"Searched {len(selected_queries)} queries: {selected_queries}",
                 "user_keywords": bool(user_keywords),
-                "articles_found": len(articles_content),
+                "articles_retrieved": retrieved_count,
+                "articles_after_filter": len(articles_content),
             }],
         }

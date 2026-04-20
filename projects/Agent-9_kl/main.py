@@ -6,7 +6,7 @@ from src.workflow.graph import create_graph
 
 def run():
     run_id = str(uuid.uuid4())
-    print(f"Initialize Agent-8 System...")
+    print(f"Initialize Campaign Agent System...")
     print(f"Run ID: {run_id}")
     
     app = create_graph()

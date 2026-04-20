@@ -2,7 +2,7 @@ export default function Header({ status }) {
   return (
     <header className="header">
       <div className="header-logo">
-        Agent-9 <span>Campaign System</span>
+        Campaign <span>Agent</span>
       </div>
       {status && <StatusBadge status={status} />}
     </header>

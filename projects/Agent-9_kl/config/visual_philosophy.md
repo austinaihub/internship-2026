@@ -1,4 +1,4 @@
-# Visual Philosophy — Agent-9 Campaign Imagery
+# Visual Philosophy — Campaign Agent Imagery
 
 This document defines the design principles for all generated campaign images.
 It is referenced by the Audience Analyzer and Image Generator agents.

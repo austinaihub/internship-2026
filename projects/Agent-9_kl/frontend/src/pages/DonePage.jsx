@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { CheckCircle2, Download, Layers, Sparkles, Plus, ChevronRight } from 'lucide-react'
 import { refineCampaign, getImageUrl } from '../api'
+import PageHeader from '../components/PageHeader'
 
 const REFINE_OPTIONS = [
   { value: 'text_only', label: 'Text only', desc: 'Rewrite the post' },
@@ -40,96 +42,122 @@ export default function DonePage({ state, sessionId, onUpdate, onNewCampaign, re
     }
   }
 
-  return (
-    <div className="fade-in">
+  const handleDownload = async () => {
+    const res = await fetch(imageUrl)
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = imageUrl.split('/').pop() || 'campaign-image.png'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
-      {/* Result Display */}
-      <div className="card mb-lg">
-        <h3 className="section-title" style={{ marginBottom: 'var(--space-md)' }}>
-          Final Social Media Post
-        </h3>
-        <div className="result-grid">
-          <div>
-            {imageUrl && (
-              <div className="image-preview">
-                <img src={imageUrl} alt="Campaign visual" />
-                <button
-                  className="btn-save-image"
-                  onClick={async () => {
-                    const res = await fetch(imageUrl)
-                    const blob = await res.blob()
-                    const a = document.createElement('a')
-                    a.href = URL.createObjectURL(blob)
-                    a.download = imageUrl.split('/').pop() || 'campaign-image.png'
-                    a.click()
-                    URL.revokeObjectURL(a.href)
-                  }}
-                  title="Save image"
-                >
-                  &#8681; Save
-                </button>
-              </div>
-            )}
+  return (
+    <div className="fade-in review-page">
+      <div className="done-celebration">
+        <span className="done-celebration-dot" />
+        Campaign published
+      </div>
+
+      <PageHeader
+        stepKey="done"
+        title="Your campaign is ready"
+        subtitle="Download the final asset, share the post, or refine it below."
+        icon={CheckCircle2}
+      />
+
+      <div className="preview-stage">
+        <div className="preview-stage-image">
+          {imageUrl ? (
+            <>
+              <img src={imageUrl} alt="Final campaign visual" />
+              <button
+                className="btn-image-download"
+                onClick={handleDownload}
+                title="Save image"
+              >
+                <Download size={14} strokeWidth={2} />
+                Save
+              </button>
+            </>
+          ) : (
+            <div className="preview-stage-placeholder">No image available</div>
+          )}
+        </div>
+        <div className="preview-stage-text">
+          <div className="preview-stage-kicker">
+            <Layers size={12} strokeWidth={2} />
+            Final post copy
           </div>
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--font-size-caption)' }}>
+          <div className="preview-stage-body">
             {state.post_text || 'No text available'}
           </div>
         </div>
       </div>
 
-      {/* Refinement Panel */}
-      <hr className="divider" />
-      <h3 className="section-title">Refine This Campaign</h3>
-      <p className="caption mb-md">
-        Not satisfied? Choose what to improve — the system will only re-run the necessary agents.
-      </p>
+      <section className="review-section">
+        <h3 className="review-section-title">
+          <span className="review-section-num">
+            <Sparkles size={11} strokeWidth={2.4} />
+          </span>
+          Refine this campaign
+          <span className="review-section-sub">Optional</span>
+        </h3>
+        <p className="input-help" style={{ marginTop: '-4px' }}>
+          Choose what to improve — the system only re-runs the necessary agents.
+        </p>
 
-      {/* Refine Target Radio */}
-      <div className="radio-group-horizontal mb-lg">
-        {REFINE_OPTIONS.map((opt) => (
-          <label
-            key={opt.value}
-            className={`radio-option ${refineTarget === opt.value ? 'selected' : ''}`}
-            onClick={() => setRefineTarget(opt.value)}
-          >
-            <input
-              type="radio"
-              name="refine"
-              checked={refineTarget === opt.value}
-              onChange={() => setRefineTarget(opt.value)}
-            />
-            <div className="radio-option-label">{opt.label}</div>
-            <div className="radio-option-subtitle">{opt.desc}</div>
-          </label>
-        ))}
-      </div>
+        <div className="refine-option-grid mt-sm">
+          {REFINE_OPTIONS.map((opt) => {
+            const isSel = refineTarget === opt.value
+            return (
+              <label
+                key={opt.value}
+                className={`refine-option ${isSel ? 'selected' : ''}`}
+                onClick={() => setRefineTarget(opt.value)}
+              >
+                <input
+                  type="radio"
+                  name="refine"
+                  checked={isSel}
+                  onChange={() => setRefineTarget(opt.value)}
+                />
+                <div className="refine-option-label">{opt.label}</div>
+                <div className="refine-option-desc">{opt.desc}</div>
+              </label>
+            )
+          })}
+        </div>
 
-      {/* Feedback */}
-      <div className="mb-lg">
-        <label className="input-label">Describe what you want changed</label>
         <textarea
-          className="textarea"
+          className="textarea mt-sm"
           placeholder="e.g. 'Make the tone more urgent', 'Use warmer colors', 'Target educators instead'"
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           disabled={loading}
+          rows={3}
         />
-      </div>
+      </section>
 
-      {/* Actions */}
-      <div className="btn-row">
+      <div className="review-actions">
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-lg-elevated"
           onClick={handleRefine}
           disabled={loading}
         >
-          {loading ? 'Refining...' : 'Apply Refinement'}
+          {loading ? 'Refining…' : (
+            <>
+              Apply Refinement
+              <ChevronRight size={16} strokeWidth={2.4} />
+            </>
+          )}
         </button>
         <button
           className="btn btn-secondary"
           onClick={onNewCampaign}
           disabled={loading}
         >
+          <Plus size={14} strokeWidth={2.2} />
           New Campaign
         </button>
       </div>

@@ -1,5 +1,8 @@
 import { useState } from 'react'
+import { ChevronRight, Edit3, X, Users, Aperture, Check } from 'lucide-react'
 import { approveAudience } from '../api'
+import PageHeader from '../components/PageHeader'
+import DecisionHero from '../components/DecisionHero'
 
 const STYLE_PRESETS = [
   {
@@ -7,24 +10,28 @@ const STYLE_PRESETS = [
     label: 'Rembrandt Studio',
     desc: 'Dark studio backdrop, dramatic 45° key light, sculptural shadows',
     mood: 'Classical, dramatic',
+    swatch: 'linear-gradient(135deg, #1a1a1a 0%, #3d2817 60%, #8b6914 100%)',
   },
   {
     value: 'editorial_flat',
     label: 'Editorial Flat',
     desc: 'Overhead angle, solid-color surface, shadowless diffused light',
     mood: 'Clean, graphic, modern',
+    swatch: 'linear-gradient(135deg, #f5f5f0 0%, #d4c5a9 100%)',
   },
   {
     value: 'fog_silence',
     label: 'Fog & Silence',
     desc: 'Mist-filled frame, tiny distant subject, near-monochrome',
     mood: 'Poetic, ethereal',
+    swatch: 'linear-gradient(135deg, #c7cfd4 0%, #8a9099 100%)',
   },
   {
     value: 'cinematic_depth',
     label: 'Cinematic Depth',
     desc: 'Shallow DOF, bokeh background, dramatic chiaroscuro',
     mood: 'Magazine-cover intensity',
+    swatch: 'linear-gradient(135deg, #0a1a2f 0%, #1e3a5f 50%, #d4a574 100%)',
   },
 ]
 
@@ -42,11 +49,8 @@ export default function AudienceReview({ state, sessionId, onUpdate, recordInput
   const handleApprove = async () => {
     setLoading(true)
     try {
-      const payload = { action: 'approve' }
-      // Always send the selected preset (user may have changed it without editing other fields)
-      payload.visualStylePreset = visualStylePreset
+      const payload = { action: 'approve', visualStylePreset }
       if (guidance.trim()) payload.guidance = guidance.trim()
-
       const data = await approveAudience(sessionId, payload)
       recordInput({
         step: 'audience_review',
@@ -74,7 +78,6 @@ export default function AudienceReview({ state, sessionId, onUpdate, recordInput
         visualElements: visualElements.trim(),
       }
       if (guidance.trim()) payload.guidance = guidance.trim()
-
       const data = await approveAudience(sessionId, payload)
       recordInput({
         step: 'audience_review',
@@ -91,111 +94,131 @@ export default function AudienceReview({ state, sessionId, onUpdate, recordInput
     }
   }
 
+  const recommendedPreset = state.visual_style_preset || 'cinematic_depth'
+  const audienceLabel = (state.target_audience || 'N/A').replace(/_/g, ' ')
+
   return (
-    <div className="fade-in">
+    <div className="fade-in review-page">
+      <PageHeader
+        stepKey="audience"
+        title="Review the audience strategy"
+        subtitle="Confirm who this campaign targets and how the visual should feel."
+        icon={Users}
+      />
 
-      {/* AI Decision Summary */}
-      <div className="card mb-lg">
-        <p className="caption mb-xs">AI Selected Audience</p>
-        <div className="audience-tag mb-sm">{state.target_audience || 'N/A'}</div>
-      </div>
+      <DecisionHero
+        label="Target audience"
+        title={<span className="decision-hero-tag">{audienceLabel}</span>}
+        description={state.audience_brief || null}
+      />
 
-      {/* Visual Style Preset Selector — always visible */}
-      <div className="mb-lg">
-        <label className="input-label">Photography Style</label>
-        <div className="style-preset-grid">
-          {STYLE_PRESETS.map((preset) => (
-            <label
-              key={preset.value}
-              className={`style-preset-card ${visualStylePreset === preset.value ? 'selected' : ''}`}
-              onClick={() => setVisualStylePreset(preset.value)}
-            >
-              <input
-                type="radio"
-                name="stylePreset"
-                checked={visualStylePreset === preset.value}
-                onChange={() => setVisualStylePreset(preset.value)}
-              />
-              <div className="style-preset-content">
-                <div className="style-preset-name">{preset.label}</div>
-                <div className="style-preset-desc">{preset.desc}</div>
-                <div className="style-preset-mood">{preset.mood}</div>
-              </div>
-            </label>
-          ))}
+      <section className="review-section">
+        <h3 className="review-section-title">
+          <span className="review-section-num">1</span>
+          Photography style
+          <span className="review-section-sub">
+            AI suggested: <strong>{recommendedPreset.replace(/_/g, ' ')}</strong>
+          </span>
+        </h3>
+        <div className="preset-grid">
+          {STYLE_PRESETS.map((preset) => {
+            const isSel = visualStylePreset === preset.value
+            return (
+              <label
+                key={preset.value}
+                className={`preset-card ${isSel ? 'selected' : ''}`}
+                onClick={() => setVisualStylePreset(preset.value)}
+              >
+                <input
+                  type="radio"
+                  name="stylePreset"
+                  checked={isSel}
+                  onChange={() => setVisualStylePreset(preset.value)}
+                />
+                <div className="preset-swatch" style={{ background: preset.swatch }}>
+                  {isSel && (
+                    <span className="preset-swatch-check">
+                      <Check size={14} strokeWidth={3} />
+                    </span>
+                  )}
+                  <Aperture className="preset-swatch-icon" size={18} strokeWidth={1.6} />
+                </div>
+                <div className="preset-body">
+                  <div className="preset-name">{preset.label}</div>
+                  <div className="preset-desc">{preset.desc}</div>
+                  <div className="preset-mood">{preset.mood}</div>
+                </div>
+              </label>
+            )
+          })}
         </div>
-        <p className="input-help">
-          AI recommended: <strong>{state.visual_style_preset || 'cinematic_depth'}</strong> — you can override
-        </p>
-      </div>
+      </section>
 
-      {/* Audience Fields — read-only or editable */}
-      <div className="audience-fields mb-lg">
-
-        <div className="audience-field">
-          <label className="input-label">Target Audience</label>
-          {editing ? (
-            <input
-              className="input"
-              value={targetAudience}
-              onChange={(e) => setTargetAudience(e.target.value)}
-              disabled={loading}
-              placeholder="e.g. college_students, educators, business_owners"
-            />
-          ) : (
-            <p className="audience-value">{state.target_audience || 'N/A'}</p>
+      <section className="review-section">
+        <h3 className="review-section-title">
+          <span className="review-section-num">2</span>
+          Audience brief
+          {!editing && (
+            <button className="review-section-edit" onClick={() => setEditing(true)}>
+              <Edit3 size={12} strokeWidth={2} /> Edit fields
+            </button>
           )}
-        </div>
-
-        <div className="audience-field">
-          <label className="input-label">Audience Brief</label>
-          {editing ? (
-            <textarea
-              className="textarea"
-              value={audienceBrief}
-              onChange={(e) => setAudienceBrief(e.target.value)}
-              disabled={loading}
-              rows={3}
-            />
-          ) : (
-            <p className="audience-value">{state.audience_brief || 'N/A'}</p>
+          {editing && (
+            <button className="review-section-edit" onClick={() => setEditing(false)}>
+              <X size={12} strokeWidth={2} /> Cancel
+            </button>
           )}
-        </div>
+        </h3>
 
-        <div className="audience-field">
-          <label className="input-label">Visual Style (color/mood)</label>
-          {editing ? (
-            <textarea
-              className="textarea"
-              value={visualStyle}
-              onChange={(e) => setVisualStyle(e.target.value)}
-              disabled={loading}
-              rows={2}
-            />
-          ) : (
-            <p className="audience-value">{state.visual_style || 'N/A'}</p>
-          )}
+        <div className="detail-fields">
+          <Field
+            label="Target Audience"
+            value={state.target_audience}
+            editing={editing}
+            editValue={targetAudience}
+            onEdit={setTargetAudience}
+            placeholder="e.g. college_students, educators"
+            loading={loading}
+          />
+          <Field
+            label="Audience Brief"
+            value={state.audience_brief}
+            editing={editing}
+            editValue={audienceBrief}
+            onEdit={setAudienceBrief}
+            multiline
+            rows={3}
+            loading={loading}
+          />
+          <Field
+            label="Visual Style"
+            value={state.visual_style}
+            editing={editing}
+            editValue={visualStyle}
+            onEdit={setVisualStyle}
+            multiline
+            rows={2}
+            loading={loading}
+          />
+          <Field
+            label="Visual Elements"
+            value={state.visual_elements}
+            editing={editing}
+            editValue={visualElements}
+            onEdit={setVisualElements}
+            multiline
+            rows={2}
+            loading={loading}
+          />
         </div>
+      </section>
 
-        <div className="audience-field">
-          <label className="input-label">Visual Elements</label>
-          {editing ? (
-            <textarea
-              className="textarea"
-              value={visualElements}
-              onChange={(e) => setVisualElements(e.target.value)}
-              disabled={loading}
-              rows={2}
-            />
-          ) : (
-            <p className="audience-value">{state.visual_elements || 'N/A'}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Creative Guidance (always visible) */}
-      <div className="mb-lg">
-        <label className="input-label">Additional creative guidance (optional)</label>
+      <section className="review-section">
+        <h3 className="review-section-title">
+          <span className="review-section-num">3</span>
+          Additional guidance
+          <span className="review-section-sub">Optional</span>
+        </h3>
         <textarea
           className="textarea"
           placeholder="e.g. 'Focus on hope rather than fear', 'Emphasize legal action'"
@@ -204,39 +227,49 @@ export default function AudienceReview({ state, sessionId, onUpdate, recordInput
           disabled={loading}
           rows={2}
         />
-        <p className="input-help">
-          This guidance will influence text writing and image generation
-        </p>
-      </div>
+        <p className="input-help">Flows into copy and image generation</p>
+      </section>
 
-      {/* Actions */}
-      <div className="btn-row">
+      <div className="review-actions">
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-lg-elevated"
           onClick={editing ? handleEdit : handleApprove}
           disabled={loading}
         >
-          {loading ? 'Processing...' : editing ? 'Save & Continue' : 'Approve & Continue'}
+          {loading ? 'Processing…' : editing ? 'Save & Continue' : 'Approve & Continue'}
+          {!loading && <ChevronRight size={16} strokeWidth={2.4} />}
         </button>
-        {!editing && (
-          <button
-            className="btn btn-secondary"
-            onClick={() => setEditing(true)}
-            disabled={loading}
-          >
-            Edit Fields
-          </button>
-        )}
-        {editing && (
-          <button
-            className="btn btn-secondary"
-            onClick={() => setEditing(false)}
-            disabled={loading}
-          >
-            Cancel Edit
-          </button>
-        )}
       </div>
+    </div>
+  )
+}
+
+function Field({ label, value, editing, editValue, onEdit, multiline, rows, placeholder, loading }) {
+  return (
+    <div className="detail-field">
+      <label className="detail-field-label">{label}</label>
+      {editing ? (
+        multiline ? (
+          <textarea
+            className="textarea"
+            value={editValue}
+            onChange={(e) => onEdit(e.target.value)}
+            disabled={loading}
+            rows={rows || 2}
+            placeholder={placeholder}
+          />
+        ) : (
+          <input
+            className="input"
+            value={editValue}
+            onChange={(e) => onEdit(e.target.value)}
+            disabled={loading}
+            placeholder={placeholder}
+          />
+        )
+      ) : (
+        <p className="detail-field-value">{value || 'N/A'}</p>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-# Agent-9
+# Campaign Agent
 
 Multi-agent AI system that generates human trafficking awareness campaigns for social media. Built with LangGraph, OpenAI, and Google Gemini.
 

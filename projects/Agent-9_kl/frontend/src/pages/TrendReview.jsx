@@ -1,5 +1,8 @@
 import { useState } from 'react'
+import { ChevronDown, ChevronRight, Check, RefreshCw, ExternalLink, Newspaper } from 'lucide-react'
 import { approveTrend } from '../api'
+import PageHeader from '../components/PageHeader'
+import DecisionHero from '../components/DecisionHero'
 
 export default function TrendReview({ state, sessionId, onUpdate, recordInput }) {
   const [selectedOption, setSelectedOption] = useState('ai')
@@ -8,24 +11,20 @@ export default function TrendReview({ state, sessionId, onUpdate, recordInput })
   const [loading, setLoading] = useState(false)
   const [linksOpen, setLinksOpen] = useState(false)
 
-  const allNews = state.all_retrieved_news || []
+  const allNews = [...(state.all_retrieved_news || [])]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
 
   const handleApprove = async () => {
     setLoading(true)
     try {
       const payload = { action: 'approve' }
-
       if (customTopic.trim()) {
         payload.customTopic = customTopic.trim()
       } else if (selectedOption !== 'ai') {
         const article = allNews.find(a => a.title === selectedOption)
         if (article) payload.selectedArticleTitle = article.title
       }
-
-      // Pass guidance if provided
-      if (guidance.trim()) {
-        payload.guidance = guidance.trim()
-      }
+      if (guidance.trim()) payload.guidance = guidance.trim()
 
       const data = await approveTrend(sessionId, payload)
       recordInput({
@@ -57,82 +56,117 @@ export default function TrendReview({ state, sessionId, onUpdate, recordInput })
   }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in review-page">
+      <PageHeader
+        stepKey="topic"
+        title="Review the news topic"
+        subtitle="Approve the AI pick, choose a different article, or write your own angle."
+        icon={Newspaper}
+      />
 
-      {/* AI Recommendation */}
-      <div className="card mb-lg">
-        <p className="caption mb-xs">AI Recommended Topic</p>
-        <h2 className="page-title mb-sm">{state.trend_topic || 'N/A'}</h2>
-        <p style={{ color: 'var(--text-secondary)' }}>{state.trend_context || ''}</p>
-      </div>
+      <DecisionHero
+        label="Recommended topic"
+        title={state.trend_topic || 'N/A'}
+        description={state.trend_context || ''}
+      />
 
-      {/* Article Selection */}
       {allNews.length > 0 && (
-        <div className="mb-lg">
-          <p className="section-title">Select a different source article</p>
-          <div className="scroll-box">
-            <div className="radio-group">
-              <label
-                className={`radio-option ${selectedOption === 'ai' ? 'selected' : ''}`}
-                onClick={() => setSelectedOption('ai')}
-              >
-                <input
-                  type="radio"
-                  name="article"
-                  checked={selectedOption === 'ai'}
-                  onChange={() => setSelectedOption('ai')}
-                />
-                <div>
-                  <div className="radio-option-label">Use AI Recommendation</div>
-                  <div className="radio-option-subtitle">Keep the topic selected above</div>
-                </div>
-              </label>
+        <section className="review-section">
+          <h3 className="review-section-title">
+            <span className="review-section-num">1</span>
+            Pick a source article
+            <span className="review-section-sub">{allNews.length} options</span>
+          </h3>
 
-              {allNews.map((article, i) => (
+          <div className="radio-card-list">
+            <label
+              className={`radio-card ${selectedOption === 'ai' ? 'selected' : ''}`}
+              onClick={() => setSelectedOption('ai')}
+            >
+              <input
+                type="radio"
+                name="article"
+                checked={selectedOption === 'ai'}
+                onChange={() => setSelectedOption('ai')}
+              />
+              <span className="radio-card-indicator">
+                {selectedOption === 'ai' && <Check size={12} strokeWidth={3} />}
+              </span>
+              <div className="radio-card-body">
+                <div className="radio-card-title">
+                  Use AI Recommendation
+                  <span className="radio-card-chip">Default</span>
+                </div>
+                <div className="radio-card-subtitle">Keep the topic above</div>
+              </div>
+            </label>
+
+            {allNews.map((article, i) => {
+              const isSel = selectedOption === article.title
+              const scorePct = typeof article.score === 'number' ? Math.round(article.score * 100) : null
+              return (
                 <label
                   key={i}
-                  className={`radio-option ${selectedOption === article.title ? 'selected' : ''}`}
+                  className={`radio-card ${isSel ? 'selected' : ''}`}
                   onClick={() => setSelectedOption(article.title)}
                 >
                   <input
                     type="radio"
                     name="article"
-                    checked={selectedOption === article.title}
+                    checked={isSel}
                     onChange={() => setSelectedOption(article.title)}
                   />
-                  <div>
-                    <div className="radio-option-label">{article.title || 'Untitled'}</div>
-                    <div className="radio-option-subtitle">{article.source || 'Unknown source'}</div>
+                  <span className="radio-card-indicator">
+                    {isSel && <Check size={12} strokeWidth={3} />}
+                  </span>
+                  <div className="radio-card-body">
+                    <div className="radio-card-title">{article.title || 'Untitled'}</div>
+                    <div className="radio-card-subtitle">
+                      {article.source || 'Unknown source'}
+                      {scorePct !== null && (
+                        <span className="radio-card-score" title="Relevance">
+                          <span className="radio-card-score-bar">
+                            <span
+                              className="radio-card-score-fill"
+                              style={{ width: `${Math.min(100, scorePct)}%` }}
+                            />
+                          </span>
+                          {scorePct}%
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </label>
-              ))}
-            </div>
+              )
+            })}
           </div>
 
           <button
             className="collapsible-toggle mt-sm"
             onClick={() => setLinksOpen(!linksOpen)}
           >
-            {linksOpen ? '▾' : '▸'} View article links
+            {linksOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            View all article links
           </button>
           {linksOpen && (
-            <div className="mt-xs" style={{ paddingLeft: 'var(--space-md)' }}>
+            <div className="link-list">
               {allNews.map((a, i) => (
-                <div key={i} className="mb-xs">
-                  <a href={a.url} target="_blank" rel="noreferrer" className="article-link">
-                    {a.title}
-                  </a>
-                  <span className="text-small text-muted"> — {a.source}</span>
-                </div>
+                <a key={i} href={a.url} target="_blank" rel="noreferrer" className="link-list-item">
+                  <ExternalLink size={12} strokeWidth={2} />
+                  <span className="link-list-title">{a.title}</span>
+                  <span className="link-list-source">{a.source}</span>
+                </a>
               ))}
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Custom Override */}
-      <div className="mb-lg">
-        <label className="input-label">Or type your own topic</label>
+      <section className="review-section">
+        <h3 className="review-section-title">
+          <span className="review-section-num">2</span>
+          Or type your own topic
+        </h3>
         <input
           className="input"
           type="text"
@@ -141,39 +175,41 @@ export default function TrendReview({ state, sessionId, onUpdate, recordInput })
           onChange={(e) => setCustomTopic(e.target.value)}
           disabled={loading}
         />
-        <p className="input-help">Takes priority over radio selection if filled</p>
-      </div>
+        <p className="input-help">Takes priority over article selection if filled</p>
+      </section>
 
-      {/* Creative Guidance */}
-      <div className="mb-lg">
-        <label className="input-label">Creative guidance for content generation (optional)</label>
+      <section className="review-section">
+        <h3 className="review-section-title">
+          <span className="review-section-num">3</span>
+          Creative guidance
+          <span className="review-section-sub">Optional</span>
+        </h3>
         <textarea
           className="textarea"
-          placeholder="e.g. 'Focus on the victim's perspective', 'Emphasize legal consequences for businesses', 'Use a hopeful tone rather than alarming'"
+          placeholder="e.g. 'Focus on the victim's perspective', 'Use a hopeful tone', 'Emphasize legal consequences'"
           value={guidance}
           onChange={(e) => setGuidance(e.target.value)}
           disabled={loading}
           rows={3}
         />
-        <p className="input-help">
-          This guidance will influence audience targeting, text writing, and image generation
-        </p>
-      </div>
+        <p className="input-help">Flows into audience targeting, copy, and image generation</p>
+      </section>
 
-      {/* Actions */}
-      <div className="btn-row">
+      <div className="review-actions">
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-lg-elevated"
           onClick={handleApprove}
           disabled={loading}
         >
-          {loading ? 'Processing...' : 'Approve & Continue'}
+          {loading ? 'Processing…' : 'Approve & Continue'}
+          {!loading && <ChevronRight size={16} strokeWidth={2.4} />}
         </button>
         <button
           className="btn btn-secondary"
           onClick={handleResearch}
           disabled={loading}
         >
+          <RefreshCw size={14} strokeWidth={2} />
           Re-search
         </button>
       </div>
