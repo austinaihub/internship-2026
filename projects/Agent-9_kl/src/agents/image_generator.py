@@ -45,7 +45,7 @@ class ImageGeneratorAgent:
     def __init__(self):
         self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
         self.text_extractor = ChatOpenAI(model="gpt-4o-mini", temperature=0).with_structured_output(OverlayText)
-        # Initialize Google GenAI client
+        # Initialize Google GenAI client (Nano Banana Pro)
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             print("WARNING: GEMINI_API_KEY is not set.")
@@ -94,11 +94,11 @@ class ImageGeneratorAgent:
     # ------------------------------------------------------------------
     # Phase 1: Generate pure photography background (no text)
     # ------------------------------------------------------------------
-    @traceable(name="Nano Banana (Gemini) Image Generation")
+    @traceable(name="Agent-9 Image Generation (Gemini Nano Banana Pro)")
     def generate_image(self, state: AgentState):
         """
         Two-phase image generation:
-        Phase 1 — Gemini generates a text-free cinematic photograph.
+        Phase 1 — Gemini (Nano Banana Pro) generates a text-free cinematic photograph.
         Phase 2 — Pillow composites headline/facts/source onto the image.
         """
         print("--- IMAGE GENERATOR: Phase 1 — Creating visual prompt ---")
@@ -121,7 +121,10 @@ class ImageGeneratorAgent:
         # ── 1a. Generate image prompt (photography only, NO text) ──────────
         prompt_maker = ChatPromptTemplate.from_template(
             """
-            You are a minimalist photography director for a Human Trafficking Awareness campaign.
+            You are a world-class photography director creating imagery for a
+            Human Trafficking Awareness poster campaign. Your output will be
+            printed at 24×36 inches and exhibited in galleries — it must have
+            exceptional detail, tonal depth, and compositional sophistication.
 
             DESIGN PHILOSOPHY:
             {visual_philosophy}
@@ -142,7 +145,14 @@ class ImageGeneratorAgent:
             VISUAL ANCHOR (build the image around this ONE detail):
             {visual_elements}
 
-            ADDITIONAL RULES:
+            QUALITY DIRECTIVES (non-negotiable):
+            1. Medium-format rendering quality — exceptional micro-contrast and tonal depth.
+            2. Film-like tonal roll-off: smooth gradation from highlight to shadow.
+            3. Motivated lighting only — every light source has a believable origin.
+            4. Material authenticity — surfaces should feel tactile and real.
+            5. Gallery-quality print finish — no digital artifacts or HDR glow.
+
+            COMPOSITION RULES:
             1. ONE subject only. Do not combine multiple symbols or metaphors.
             2. Bottom 25% of frame: dark or uncluttered (text overlay zone).
             3. Depict WHERE the event happened, not where it was discussed.
@@ -158,8 +168,10 @@ class ImageGeneratorAgent:
             - When in doubt, choose a symbolic object over a human figure.
 
             OUTPUT: One dense paragraph. Describe: the single subject, its environment,
-            camera angle and lens, lighting (per the style), and the negative space.
-            Keep it under 120 words. Pure photography, no text.
+            camera angle and lens, lighting (per the style), color grading, material
+            textures, and the negative space. Keep it under 150 words. Pure photography,
+            no text. The image must look like it was shot by a Magnum Photos photographer
+            and printed for a museum exhibition.
             """
         )
 
@@ -215,7 +227,7 @@ class ImageGeneratorAgent:
             # Attempt 1: use the full cinematic prompt
             image_part, block_reason = self._call_gemini(image_prompt)
 
-            # Gemini 3 returns FinishReason.NO_IMAGE (generic refusal) or PROHIBITED_CONTENT
+            # Gemini returns FinishReason.NO_IMAGE (generic refusal) or PROHIBITED_CONTENT
             # in addition to the classic SAFETY block. Treat all three as retry-worthy.
             def _is_refusal(reason: str | None) -> bool:
                 r = (reason or "").upper()
@@ -239,16 +251,19 @@ class ImageGeneratorAgent:
 
             # Still no image after all retries
             if image_part is None:
+                is_safety_issue = _is_refusal(block_reason)
+                error_msg = (
+                    "Image generation was blocked by safety filters. Try a less sensitive angle."
+                    if is_safety_issue else
+                    f"API Error: {block_reason}"
+                )
+
                 print(f"ERROR: Gemini returned no image after all retries. Reason: {block_reason}")
                 return {
                     "image_prompt": image_prompt,
                     "image_path": None,
                     "status": "error",
-                    "feedback": (
-                        "Image generation was blocked by safety filters even after softening the prompt. "
-                        "Try a less sensitive angle on the topic, or add guidance like "
-                        "'use purely symbolic imagery, no human figures' in the audience step."
-                    )
+                    "feedback": error_msg
                 }
 
             generated_image_part = image_part
@@ -300,14 +315,15 @@ class ImageGeneratorAgent:
     # ------------------------------------------------------------------
     def _call_gemini(self, prompt: str):
         """
-        Make a single Gemini image-generation call.
+        Make a single Gemini image-generation call using Nano Banana Pro
+        (gemini-3-pro-image-preview).
         Returns (image_part, block_reason).
         image_part is the generated image Part, or None if blocked/failed.
         block_reason is a string describing why it was blocked, or None on success.
         """
         try:
             result = self.genai_client.models.generate_content(
-                model="gemini-3.1-flash-image-preview",
+                model="gemini-3-pro-image-preview",
                 contents=[prompt],
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"],

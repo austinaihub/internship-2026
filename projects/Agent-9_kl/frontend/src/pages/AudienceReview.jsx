@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Edit3, X, Users, Aperture, Check } from 'lucide-react'
+import { ChevronRight, Edit3, X, Users, Check } from 'lucide-react'
 import { approveAudience } from '../api'
 import PageHeader from '../components/PageHeader'
 import DecisionHero from '../components/DecisionHero'
@@ -10,28 +10,28 @@ const STYLE_PRESETS = [
     label: 'Rembrandt Studio',
     desc: 'Dark studio backdrop, dramatic 45° key light, sculptural shadows',
     mood: 'Classical, dramatic',
-    swatch: 'linear-gradient(135deg, #1a1a1a 0%, #3d2817 60%, #8b6914 100%)',
+    image: '/style-demos/rembrandt.png',
   },
   {
     value: 'editorial_flat',
     label: 'Editorial Flat',
     desc: 'Overhead angle, solid-color surface, shadowless diffused light',
     mood: 'Clean, graphic, modern',
-    swatch: 'linear-gradient(135deg, #f5f5f0 0%, #d4c5a9 100%)',
+    image: '/style-demos/editorial_flat.png',
   },
   {
     value: 'fog_silence',
     label: 'Fog & Silence',
     desc: 'Mist-filled frame, tiny distant subject, near-monochrome',
     mood: 'Poetic, ethereal',
-    swatch: 'linear-gradient(135deg, #c7cfd4 0%, #8a9099 100%)',
+    image: '/style-demos/fog_silence.png',
   },
   {
     value: 'cinematic_depth',
     label: 'Cinematic Depth',
     desc: 'Shallow DOF, bokeh background, dramatic chiaroscuro',
     mood: 'Magazine-cover intensity',
-    swatch: 'linear-gradient(135deg, #0a1a2f 0%, #1e3a5f 50%, #d4a574 100%)',
+    image: '/style-demos/cinematic_depth.png',
   },
 ]
 
@@ -135,13 +135,18 @@ export default function AudienceReview({ state, sessionId, onUpdate, recordInput
                   checked={isSel}
                   onChange={() => setVisualStylePreset(preset.value)}
                 />
-                <div className="preset-swatch" style={{ background: preset.swatch }}>
+                <div className="preset-swatch">
+                  <img
+                    src={preset.image}
+                    alt={preset.label}
+                    className="preset-swatch-img"
+                    loading="lazy"
+                  />
                   {isSel && (
                     <span className="preset-swatch-check">
                       <Check size={14} strokeWidth={3} />
                     </span>
                   )}
-                  <Aperture className="preset-swatch-icon" size={18} strokeWidth={1.6} />
                 </div>
                 <div className="preset-body">
                   <div className="preset-name">{preset.label}</div>
