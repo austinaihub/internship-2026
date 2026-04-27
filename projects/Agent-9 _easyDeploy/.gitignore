@@ -1,0 +1,25 @@
+# Environment variables
+.env
+
+# Python compilation files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Output directories and local test files
+outputs/
+test_*.py
+*.txt
+!requirements.txt
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Frontend dev dependencies (not needed in deployment)
+frontend/node_modules/
+
+# NOTE: frontend/dist/ is intentionally NOT ignored —
+# it contains the pre-built static files served by FastAPI
