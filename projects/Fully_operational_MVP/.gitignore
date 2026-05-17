@@ -1,0 +1,27 @@
+# API Keys & Secrets
+backend/.env
+.env
+
+# Python compilation files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Frontend caching and modules
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+*.log
+
+# Image Generations
+backend/outputs/
